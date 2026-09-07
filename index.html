@@ -212,7 +212,7 @@ function settings(){
     </div>
     <div id="inviteBox" style="margin-top:12px"></div>
    ` : `
-    <p style="color:var(--muted)">Depois de entrar, você poderá criar sua carteira e gerar um convite para sua esposa.</p>
+    <p style="color:var(--muted)">Se esta conta já pertence a uma carteira, ela será recuperada automaticamente. Só é necessário criar uma carteira se esta for uma conta nova.</p>
     ${u ? '<button class="btn" onclick="createHousehold()">Criar minha carteira</button>' : ''}
    `}
   </div>
@@ -324,12 +324,26 @@ function session(){
  try{return JSON.parse(localStorage.getItem('sbSession')||'null')}catch{return null}
 }
 async function refreshSession(){
+ try{
+   const client=getSbClient();
+   const {data,error}=await client.auth.getSession();
+   if(error) throw error;
+   if(data?.session){
+     const s=data.session;
+     const packed={access_token:s.access_token,refresh_token:s.refresh_token,user:data.user||s.user,session:s};
+     localStorage.setItem('sbSession',JSON.stringify(packed));
+     setUser(data.user||s.user);
+     return packed;
+   }
+ }catch(e){ console.warn('Não foi possível recuperar a sessão:',e) }
  const s=session();
- if(!s?.refresh_token) return null;
- const data=await auth('token?grant_type=refresh_token',{refresh_token:s.refresh_token});
- localStorage.setItem('sbSession',JSON.stringify(data));
- setUser(data.user||currentUser());
- return data;
+ if(s?.refresh_token){
+   const data=await auth('token?grant_type=refresh_token',{refresh_token:s.refresh_token});
+   localStorage.setItem('sbSession',JSON.stringify(data));
+   setUser(data.user||currentUser());
+   return data;
+ }
+ return null;
 }
 
 async function sb(path,opts={}){
@@ -405,8 +419,11 @@ async function submitAuth(e){
  }catch(err){msg.textContent='Não foi possível: '+err.message}
 }
 async function logout(){
- localStorage.removeItem('sbSession');setUser(null);setHousehold(null);
- updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
+ try{if(window.supabase?.createClient){await getSbClient().auth.signOut()}}catch(e){console.warn('Saída:',e)}
+ localStorage.removeItem('sbSession');
+ setUser(null);
+ setHousehold(null);
+ updateSyncStatus(navigator.onLine?'online':'sem internet',navigator.onLine);
  render();
 }
 
@@ -434,25 +451,52 @@ async function saveConnection(){
  const msg=document.getElementById('syncMsg');
  try{
    if(!url||!key) throw new Error('Informe a URL e a chave pública.');
-   msg.textContent='Conexão salva. Agora entre ou crie sua conta.';
-   updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
+   msg.textContent='Conexão salva. Testando…';
+   await updateRealConnectionStatus();
+   if(document.getElementById('syncMsg')) document.getElementById('syncMsg').textContent='Conexão salva e testada. Agora entre ou crie sua conta.';
  }catch(e){msg.textContent=e.message}
 }
 
 async function ensureHousehold(){
- if(!currentUser()) return;
- if(currentHousehold()) return currentHousehold();
+ const u=currentUser();
+ if(!u) return null;
+ const cached=currentHousehold();
+ if(cached?.id) return cached;
  try{
-   const rows=await sb('household_members?select=household_id,role&user_id=eq.'+encodeURIComponent(currentUser().id));
+   await refreshSession();
+   const rows=await sb('household_members?select=household_id,role&user_id=eq.'+encodeURIComponent(u.id));
    if(rows?.length){
      const hid=rows[0].household_id;
      const hs=await sb('households?select=id,name&id=eq.'+encodeURIComponent(hid));
-     const h={id:hid,name:hs?.[0]?.name||'Minhas Finanças',memberCount:1};
-     setHousehold(h);render();return h;
+     if(hs?.length){
+       const members=await sb('household_members?select=user_id&household_id=eq.'+encodeURIComponent(hid));
+       const h={id:hid,name:hs[0].name||'Minhas Finanças',memberCount:members?.length||1};
+       setHousehold(h);
+       render();
+       return h;
+     }
    }
- }catch(e){console.warn(e)}
+ }catch(e){
+   console.warn('Não foi possível recuperar a carteira:',e);
+   updateSyncStatus('conexão ok, mas carteira não carregada',false);
+ }
  return null;
 }
+
+async function updateRealConnectionStatus(){
+ try{
+   const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
+   if(!url||!key){updateSyncStatus('configure a conexão',false);return false}
+   const r=await fetch(url+'/auth/v1/settings',{method:'GET',headers:{apikey:key}});
+   if(!r.ok) throw new Error('HTTP '+r.status);
+   updateSyncStatus('conectado ao Supabase',true);
+   return true;
+ }catch(e){
+   updateSyncStatus('sem conexão com o Supabase',false);
+   return false;
+ }
+}
+
 async function createHousehold(){
  try{
    const h=await rpc('create_household',{p_name:'Minhas Finanças'});
@@ -494,8 +538,10 @@ function localCardPayload(c,hid){
 }
 
 async function syncNow(){
- if(!navigator.onLine){updateSyncStatus('offline/local');return}
- if(!currentUser()||!currentHousehold()){updateSyncStatus('online • entre para sincronizar',true);return}
+ if(!navigator.onLine){updateSyncStatus('sem internet',false);return}
+ if(!currentUser()){updateSyncStatus('online • entre para sincronizar',true);return}
+ if(!currentHousehold()){await ensureHousehold();}
+ if(!currentHousehold()){updateSyncStatus('conectado, carteira ainda não encontrada',false);return}
  try{
    updateSyncStatus('sincronizando…',true);
    const h=currentHousehold().id;
@@ -527,15 +573,17 @@ async function syncNow(){
  }catch(e){updateSyncStatus('online • tente sincronizar',true);console.warn(e)}
 }
 
-window.addEventListener('online',()=>syncNow());
-window.addEventListener('offline',()=>updateSyncStatus('offline/local'));
+window.addEventListener('online',async()=>{await updateRealConnectionStatus(); await syncNow()});
+window.addEventListener('offline',()=>updateSyncStatus('sem internet',false));
 document.addEventListener('DOMContentLoaded',async()=>{
- render();
- updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
- if(navigator.onLine&&currentUser()){
-   try{await refreshSession()}catch{}
+ updateSyncStatus('verificando conexão…',false);
+ if(currentUser() && SUPABASE_CONFIG.url() && SUPABASE_CONFIG.key()){
+   try{await refreshSession()}catch(e){console.warn('Sessão:',e)}
    await ensureHousehold();
+   await updateRealConnectionStatus();
    await syncNow();
+ }else{
+   updateSyncStatus(navigator.onLine?'online':'sem internet',navigator.onLine);
  }
 });
 
