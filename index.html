@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#00866a">
+<title>Minhas Finanças — Controle Financeiro</title>
+<style>
+:root{
+  --green:#00866a;--green2:#00a37f;--bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6d7884;
+  --line:#e3e7eb;--danger:#d94b4b;--income:#00866a;--shadow:0 8px 28px rgba(22,34,44,.08);
+}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}button{cursor:pointer}
+.app{min-height:100vh;display:flex}.sidebar{width:235px;background:#fff;border-right:1px solid var(--line);padding:22px 14px;position:fixed;inset:0 auto 0 0}
+.brand{font-weight:900;font-size:21px;padding:8px 12px 22px;color:var(--green)}.brand small{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:2px}
+.nav button{width:100%;border:0;background:transparent;text-align:left;padding:12px;border-radius:11px;color:#52606d;margin:2px 0;font-weight:700}
+.nav button.active,.nav button:hover{background:#eaf7f3;color:var(--green)}
+.main{margin-left:235px;width:calc(100% - 235px);padding:28px;max-width:1450px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}.title h1{margin:0;font-size:27px}.title p{margin:5px 0 0;color:var(--muted)}
+.month{display:flex;align-items:center;gap:10px}.month button,.iconbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 11px}.month strong{min-width:130px;text-align:center}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow)}
+.metric span{font-size:13px;color:var(--muted);font-weight:700}.metric b{display:block;font-size:24px;margin-top:8px}.metric.in b{color:var(--income)}.metric.out b{color:var(--danger)}
+.content{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin-top:16px}.card h2{font-size:17px;margin:0 0 15px}
+.bar{height:8px;background:#edf0f2;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+.catrow{margin:13px 0}.cathead{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}.cathead span:last-child{font-weight:800}
+.tx{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)}.tx:last-child{border-bottom:0}.ico{width:39px;height:39px;border-radius:12px;background:#eef8f5;display:grid;place-items:center;font-size:20px;flex:none}.txmain{flex:1;min-width:0}.txmain b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.txmain small{color:var(--muted)}.amount{font-weight:850}.expense{color:#4b5660}.income{color:var(--green)}
+.btn{border:0;background:var(--green);color:white;padding:11px 16px;border-radius:10px;font-weight:800}.btn:hover{background:#00765d}.btn.secondary{background:#edf7f4;color:var(--green)}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.field label{display:block;font-size:12px;font-weight:800;color:#66727d;margin-bottom:6px}.field input,.field select{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff;outline:none}.field input:focus,.field select:focus{border-color:var(--green)}
+.tabs{display:flex;gap:7px;margin-bottom:15px}.tab{border:1px solid var(--line);background:#fff;padding:9px 13px;border-radius:9px;font-weight:750;color:#66727d}.tab.active{background:#eaf7f3;color:var(--green);border-color:#cbece3}
+.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:11px 7px;border-bottom:1px solid var(--line);font-size:13px}.table th{color:var(--muted);font-size:11px;text-transform:uppercase}.right{text-align:right!important}
+.empty{text-align:center;color:var(--muted);padding:35px}.actions{display:flex;gap:7px;justify-content:flex-end}.danger{color:var(--danger)}
+.modal{position:fixed;inset:0;background:rgba(10,20,25,.48);display:none;align-items:center;justify-content:center;padding:18px;z-index:10}.modal.open{display:flex}.modalbox{background:#fff;border-radius:17px;width:min(620px,100%);padding:22px;box-shadow:0 30px 70px rgba(0,0,0,.2)}.modalhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.modalhead h2{margin:0}
+.switch{display:flex;gap:10px}.switch button{flex:1;border:1px solid var(--line);background:#fff;padding:12px;border-radius:10px;font-weight:800}.switch button.active{background:#eaf7f3;color:var(--green);border-color:#bfe8dc}
+.mobilebar{display:none}
+@media(max-width:900px){.sidebar{display:none}.main{margin:0;width:100%;padding:18px 16px 85px}.grid{grid-template-columns:repeat(2,1fr)}.content{grid-template-columns:1fr}.mobilebar{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:8;padding:7px;justify-content:space-around}.mobilebar button{border:0;background:none;color:#697680;font-size:11px;font-weight:700}.mobilebar button.active{color:var(--green)}.top{align-items:flex-start}.formgrid{grid-template-columns:1fr}}
+@media(max-width:520px){.grid{grid-template-columns:1fr 1fr}.metric b{font-size:20px}.month strong{min-width:95px}.table th:nth-child(3),.table td:nth-child(3){display:none}}
+</style>
+<link rel="manifest" href="manifest.json"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E💰%3C/text%3E%3C/svg%3E%22%3E</head>
+<body>
+<div id="syncStatus" style="position:fixed;right:14px;top:10px;z-index:20;font-size:11px;color:#66727d;background:#fff;border:1px solid #e3e7eb;border-radius:99px;padding:5px 9px">● offline/local</div><div class="app">
+  <aside class="sidebar">
+    <div class="brand">Minhas Finanças<small>controle financeiro pessoal</small></div>
+    <div class="nav">
+      <button class="active" data-page="dashboard">▦ &nbsp; Painel</button>
+      <button data-page="transactions">☷ &nbsp; Transações</button>
+      <button data-page="new">＋ &nbsp; Novo lançamento</button>
+      <button data-page="cards">▣ &nbsp; Cartões</button>
+      <button data-page="settings">⚙ &nbsp; Ajustes</button><button onclick="syncNow()">☁ &nbsp; Sincronizar</button>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<nav class="mobilebar">
+  <button class="active" data-page="dashboard">⌂<br>Painel</button>
+  <button data-page="transactions">☷<br>Transações</button>
+  <button data-page="new">＋<br>Novo</button>
+  <button data-page="cards">▣<br>Cartões</button>
+  <button data-page="settings">⚙<br>Ajustes</button>
+</nav>
+
+<div class="modal" id="modal"><div class="modalbox">
+  <div class="modalhead"><h2>Novo lançamento</h2><button class="iconbtn" onclick="closeModal()">✕</button></div>
+  <div class="switch"><button id="expenseBtn" class="active" onclick="setType('expense')">Gasto</button><button id="incomeBtn" onclick="setType('income')">Recebimento</button></div>
+  <form id="txForm" onsubmit="saveTx(event)">
+    <div class="formgrid" style="margin-top:15px">
+      <div class="field"><label>Valor</label><input id="amount" type="number" step="0.01" min="0.01" placeholder="0,00" required></div>
+      <div class="field"><label>Data</label><input id="date" type="date" required></div>
+      <div class="field"><label>Descrição</label><input id="desc" placeholder="Ex.: Almoço" required></div>
+      <div class="field"><label>Categoria</label><select id="category"></select></div>
+      <div class="field"><label>Forma de pagamento</label><select id="payment"><option>Dinheiro/débito</option><option>Cartão de crédito</option><option>PIX</option><option>Transferência</option></select></div>
+      <div class="field"><label>Parcelas</label><select id="installments"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option><option value="5">5x</option><option value="6">6x</option><option value="10">10x</option><option value="12">12x</option></select></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn secondary" onclick="closeModal()">Cancelar</button><button class="btn">Salvar lançamento</button></div>
+  </form>
+</div></div>
+
+<script>
+
+(function migrateOldData(){
+  try{
+    if(!localStorage.getItem('minhas_financas_v2')){
+      const old=localStorage.getItem('grana_certa_v1');
+      if(old)localStorage.setItem('minhas_financas_v2',old);
+    }
+  }catch(e){}
+})();
+
+const KEY='minhas_financas_v2';
+let state=JSON.parse(localStorage.getItem(KEY)||'null')||{
+  cards:[{id:1,name:'Cartão de crédito',icon:'💳',limit:5000,closing:10,due:17}],
+  categories:[
+    ['🍔','Alimentação'],['📺','Assinaturas'],['📚','Educação'],['🎉','Lazer'],['🛒','Mercado'],
+    ['🏠','Moradia'],['🎁','Outros gastos'],['🐾','Pets'],['👕','Roupas'],['💊','Saúde'],['🚗','Transporte']
+  ],
+  tx:[
+    {id:1,date:'2026-09-05',desc:'Uber de volta',cat:'Transporte',icon:'🚗',amount:19.80,type:'expense',pay:'PIX'},
+    {id:2,date:'2026-09-05',desc:'Almoço',cat:'Alimentação',icon:'🍔',amount:41.90,type:'expense',pay:'Dinheiro/débito'},
+    {id:3,date:'2026-09-04',desc:'Café da manhã',cat:'Alimentação',icon:'🍔',amount:11,type:'expense',pay:'Dinheiro/débito'},
+    {id:4,date:'2026-09-03',desc:'Salário',cat:'Recebimento',icon:'💰',amount:5200,type:'income',pay:'Transferência'},
+    {id:5,date:'2026-09-02',desc:'Mercado da semana',cat:'Mercado',icon:'🛒',amount:143.20,type:'expense',pay:'Cartão de crédito'}
+  ]
+};
+let currentPage='dashboard', currentMonth=new Date('2026-09-07T12:00:00'), currentType='expense';
+state.cards=state.cards||[];
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function money(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function monthKey(){return currentMonth.toISOString().slice(0,7)}
+function monthName(){return currentMonth.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
+function monthNav(){return `<div class="month"><button onclick="changeMonth(-1)">‹</button><strong>${monthName()}</strong><button onclick="changeMonth(1)">›</button></div>`}
+function header(title,sub=''){return `<div class="top"><div class="title"><h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div>${monthNav()}</div>`}
+function setPage(p){currentPage=p;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===p));render()}
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>setPage(b.dataset.page));
+function changeMonth(d){currentMonth.setMonth(currentMonth.getMonth()+d);render()}
+function monthTx(){return state.tx.filter(t=>t.date.slice(0,7)===monthKey())}
+function dashboard(){
+ const tx=monthTx(), inc=tx.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0), out=tx.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+ const cats=state.categories.map(c=>({icon:c[0],name:c[1],v:tx.filter(t=>t.cat===c[1]&&t.type==='expense').reduce((a,t)=>a+t.amount,0)})).filter(c=>c.v).sort((a,b)=>b.v-a.v);
+ const recent=[...tx].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+ return header('Painel','Uma visão rápida do seu dinheiro')+
+ `<div class="grid">
+  <div class="card metric"><span>Saldo do mês</span><b>${money(inc-out)}</b></div>
+  <div class="card metric in"><span>Entradas</span><b>${money(inc)}</b></div>
+  <div class="card metric out"><span>Saídas</span><b>${money(out)}</b></div>
+  <div class="card metric"><span>Lançamentos</span><b>${tx.length}</b></div>
+ </div>
+ <div class="content">
+  <div class="card"><h2>Para onde foi o dinheiro</h2>${cats.length?cats.slice(0,8).map(c=>`<div class="catrow"><div class="cathead"><span>${c.icon} ${c.name}</span><span>${money(c.v)}</span></div><div class="bar"><i style="width:${Math.min(100,c.v/(out||1)*100)}%"></i></div></div>`).join(''):'<div class="empty">Ainda não há gastos neste mês.</div>'}</div>
+  <div class="card"><h2>Últimos lançamentos</h2>${recent.length?recent.map(txRow).join(''):'<div class="empty">Nenhum lançamento.</div>'}</div>
+ </div>`;
+}
+function txRow(t){return `<div class="tx"><div class="ico">${t.icon||'💸'}</div><div class="txmain"><b>${esc(t.desc)}</b><small>${esc(t.cat)} · ${fmtDate(t.date)}${t.pay?' · '+esc(t.pay):''}</small></div><div class="amount ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</div></div>`}
+function transactions(){
+ const tx=[...monthTx()].sort((a,b)=>b.date.localeCompare(a.date));
+ return header('Transações','Todos os lançamentos do mês')+
+ `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="tabs"><button class="tab active" onclick="render()">Todos</button></div><button class="btn" onclick="openModal()">＋ Novo lançamento</button></div>
+ ${tx.length?`<table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th class="right">Valor</th><th></th></tr></thead><tbody>${tx.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.icon||'💸'} ${esc(t.desc)}</td><td>${esc(t.cat)}</td><td>${esc(t.pay||'')}</td><td class="right ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</td><td class="right"><button class="iconbtn" title="Excluir" onclick="delTx(${t.id})">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nenhum lançamento neste mês.</div>'}</div>`;
+}
+function newPage(){return header('Novo lançamento','Registre uma entrada ou saída')+`<div class="card" style="max-width:700px"><h2>Adicionar movimentação</h2><p style="color:var(--muted)">O formulário também pode ser aberto pelo botão +. Os dados ficam salvos neste navegador.</p><button class="btn" onclick="openModal()">＋ Abrir formulário</button></div>`}
+function cardsPage(){
+ const cards=state.cards||[];
+ const creditTx=state.tx.filter(t=>t.pay==='Cartão de crédito'&&t.type==='expense');
+ const total=creditTx.filter(t=>t.date.slice(0,7)===monthKey()).reduce((a,t)=>a+t.amount,0);
+ const installments=creditTx.filter(t=>/\(\d+\/\d+\)$/.test(t.desc));
+ return header('Cartões','Controle das compras no crédito')+
+ `<div style="display:flex;justify-content:flex-end;margin-bottom:15px"><button class="btn" onclick="openCardModal()">＋ Adicionar cartão</button></div>
+ <div class="grid">
+ ${cards.length?cards.map(c=>{
+   const used=total; const pct=c.limit?Math.min(100,used/c.limit*100):0;
+   return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:start"><div><span style="color:var(--muted);font-size:13px;font-weight:700">Cartão</span><h2 style="margin:8px 0">${c.icon||'💳'} ${esc(c.name)}</h2></div><button class="iconbtn" onclick="removeCard(${c.id})">🗑</button></div>
+    <div style="font-size:12px;color:var(--muted)">Fatura de ${monthName()}</div>
+    <div style="font-size:26px;font-weight:900;margin:5px 0 12px">${money(total)}</div>
+    <div class="cathead"><span>Limite utilizado</span><span>${c.limit?money(c.limit-used)+' disponível':'Sem limite cadastrado'}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div style="display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)"><span>Fecha dia <b>${c.closing}</b></span><span>Vence dia <b>${c.due}</b></span></div>
+   </div>`}).join(''):'<div class="card empty" style="grid-column:1/-1">Nenhum cartão cadastrado. Adicione seu primeiro cartão para acompanhar limite e fatura.</div>'}
+ </div>
+ <div class="content">
+  <div class="card"><h2>Fatura atual</h2>${creditTx.filter(t=>t.date.slice(0,7)===monthKey()).length?creditTx.filter(t=>t.date.slice(0,7)===monthKey()).sort((a,b)=>b.date.localeCompare(a.date)).map(txRow).join(''):'<div class="empty">Nenhuma compra no cartão neste mês.</div>'}</div>
+  <div class="card"><h2>Parcelamentos</h2>${installments.length?installments.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<div class="tx"><div class="ico">📆</div><div class="txmain"><b>${esc(t.desc)}</b><small>${fmtDate(t.date)} · ${esc(t.cat)}</small></div><div class="amount expense">${money(t.amount)}</div></div>`).join(''):'<div class="empty">Nenhum parcelamento registrado.</div>'}</div>
+ </div>
+ <div class="modal" id="cardModal"><div class="modalbox">
+  <div class="modalhead"><h2>Novo cartão</h2><button class="iconbtn" onclick="closeCardModal()">✕</button></div>
+  <form onsubmit="saveCard(event)">
+   <div class="formgrid">
+    <div class="field"><label>Nome do cartão</label><input id="cardName" placeholder="Ex.: Nubank" required></div>
+    <div class="field"><label>Limite</label><input id="cardLimit" type="number" step="0.01" min="0" placeholder="5000"></div>
+    <div class="field"><label>Dia de fechamento</label><input id="cardClosing" type="number" min="1" max="31" value="10" required></div>
+    <div class="field"><label>Dia de vencimento</label><input id="cardDue" type="number" min="1" max="31" value="17" required></div>
+   </div>
+   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn secondary" onclick="closeCardModal()">Cancelar</button><button class="btn">Salvar cartão</button></div>
+  </form>
+ </div></div>`;
+}
+function openCardModal(){document.getElementById('cardModal')?.classList.add('open')}
+function closeCardModal(){document.getElementById('cardModal')?.classList.remove('open')}
+function saveCard(e){e.preventDefault();state.cards=state.cards||[];state.cards.push({id:newId(),name:document.getElementById('cardName').value.trim(),icon:'💳',limit:Number(document.getElementById('cardLimit').value)||0,closing:Number(document.getElementById('cardClosing').value),due:Number(document.getElementById('cardDue').value)});save();render()}
+function removeCard(id){if(confirm('Remover este cartão?')){state.cards=state.cards.filter(c=>c.id!==id);save();render()}}
+function settings(){
+ const u = currentUser();
+ const h = currentHousehold();
+ return header('Ajustes','Sua conta e sua carteira compartilhada')+
+ `<div class="content">
+  <div class="card"><h2>Minha conta</h2>
+   ${u ? `
+    <div style="background:#eef8f5;border-radius:12px;padding:13px;margin-bottom:14px">
+      <b>${esc(u.email||'Conta conectada')}</b><br>
+      <small style="color:var(--muted)">Conectado ao Minhas Finanças</small>
+    </div>
+    <button class="btn secondary" onclick="logout()">Sair da conta</button>
+   ` : `
+    <p style="color:var(--muted)">Entre ou crie sua conta para guardar seus dados na nuvem e compartilhar a carteira.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="openAuth('login')">Entrar</button>
+      <button class="btn secondary" onclick="openAuth('signup')">Criar conta</button>
+    </div>
+   `}
+  </div>
+
+  <div class="card"><h2>Carteira compartilhada</h2>
+   ${h ? `
+    <div style="background:#eef8f5;border-radius:12px;padding:13px;margin-bottom:14px">
+      <b>${esc(h.name||'Minhas Finanças')}</b><br>
+      <small style="color:var(--muted)">${h.memberCount||1} pessoa(s) conectada(s)</small>
+    </div>
+    <p style="color:var(--muted)">Para sua esposa entrar na mesma carteira, gere um convite e envie o código para ela.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn" onclick="createInvite()">Gerar convite</button>
+      <button class="btn secondary" onclick="syncNow()">Sincronizar agora</button>
+    </div>
+    <div id="inviteBox" style="margin-top:12px"></div>
+   ` : `
+    <p style="color:var(--muted)">Depois de entrar, você poderá criar sua carteira e gerar um convite para sua esposa.</p>
+    ${u ? '<button class="btn" onclick="createHousehold()">Criar minha carteira</button>' : ''}
+   `}
+  </div>
+
+  <div class="card"><h2>Conectar o aplicativo</h2>
+   <p style="color:var(--muted);font-size:13px">Esta parte é técnica e só precisa ser configurada uma vez neste aparelho. Não coloque aqui senha da conta nem chave secreta.</p>
+   <div class="field" style="margin:12px 0"><label>URL do projeto Supabase</label><input id="sbUrl" placeholder="https://seu-projeto.supabase.co" value="${esc(localStorage.getItem('sbUrl')||'')}"></div>
+   <div class="field" style="margin:12px 0"><label>Chave pública (anon/publishable)</label><input id="sbKey" placeholder="eyJ..." value="${esc(localStorage.getItem('sbKey')||'')}"></div>
+   <button class="btn secondary" onclick="saveConnection()">Salvar conexão</button>
+   <p id="syncMsg" style="font-size:12px;color:var(--muted);margin-top:12px">A chave deve ser somente a pública. Nunca use service_role/secret key.</p>
+  </div>
+
+  <div class="card"><h2>Entrar na carteira da sua esposa</h2>
+   <p style="color:var(--muted)">Se ela lhe enviar um código de convite, use-o aqui para entrar na carteira dela.</p>
+   <div style="display:flex;gap:8px">
+    <input id="inviteCodeInput" placeholder="Ex.: AB7K9P" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:11px;text-transform:uppercase">
+    <button class="btn" onclick="joinByInvite()">Entrar</button>
+   </div>
+  </div>
+
+  <div class="card"><h2>Categorias</h2>${state.categories.map((c,i)=>`<div class="tx"><div class="ico">${c[0]}</div><div class="txmain"><b>${esc(c[1])}</b><small>Categoria ativa</small></div><button class="iconbtn" onclick="removeCat(${i})">🗑</button></div>`).join('')}<div style="display:flex;gap:8px;margin-top:15px"><input id="newCat" placeholder="Nova categoria" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:11px"><button class="btn" onclick="addCat()">Adicionar</button></div></div>
+ </div>
+
+ <div class="modal" id="authModal"><div class="modalbox">
+   <div class="modalhead"><h2 id="authTitle">Entrar</h2><button class="iconbtn" onclick="closeAuth()">✕</button></div>
+   <form onsubmit="submitAuth(event)">
+    <div class="field" style="margin-bottom:12px"><label>E-mail</label><input id="authEmail" type="email" required placeholder="voce@email.com"></div>
+    <div class="field"><label>Senha</label><input id="authPass" type="password" minlength="6" required placeholder="mínimo de 6 caracteres"></div>
+    <p id="authMsg" style="font-size:12px;color:var(--muted)"></p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn secondary" onclick="closeAuth()">Cancelar</button><button class="btn" id="authSubmit">Entrar</button></div>
+   </form>
+ </div></div>`;
+}
+
+function render(){document.getElementById('main').innerHTML=currentPage==='dashboard'?dashboard():currentPage==='transactions'?transactions():currentPage==='new'?newPage():currentPage==='cards'?cardsPage():settings();populateCategory()}
+function populateCategory(){const s=document.getElementById('category');if(!s)return;s.innerHTML=state.categories.map(c=>`<option value="${esc(c[1])}">${c[0]} ${esc(c[1])}</option>`).join('')}
+function openModal(){document.getElementById('modal').classList.add('open');document.getElementById('date').value=new Date().toISOString().slice(0,10);populateCategory()}
+function closeModal(){document.getElementById('modal').classList.remove('open');document.getElementById('txForm').reset()}
+function setType(t){currentType=t;document.getElementById('expenseBtn').classList.toggle('active',t==='expense');document.getElementById('incomeBtn').classList.toggle('active',t==='income')}
+function saveTx(e){e.preventDefault();const cat=document.getElementById('category').value;const icon=(state.categories.find(c=>c[1]===cat)||['💸'])[0];const amount=Number(document.getElementById('amount').value);const n=Number(document.getElementById('installments').value);const baseDate=document.getElementById('date').value;for(let i=0;i<n;i++){let d=new Date(baseDate+'T12:00:00');d.setMonth(d.getMonth()+i);state.tx.push({id:newId(),date:d.toISOString().slice(0,10),desc:document.getElementById('desc').value+(n>1?` (${i+1}/${n})`:''),cat,icon,amount:amount/n,type:currentType,pay:document.getElementById('payment').value})}save();closeModal();setPage('transactions'); if(navigator.onLine) syncNow()}
+function delTx(id){if(confirm('Excluir este lançamento?')){state.tx=state.tx.filter(t=>t.id!==id);save();render(); if(navigator.onLine) syncNow()}}
+function addCat(){const el=document.getElementById('newCat');const n=el.value.trim();if(!n)return;if(!state.categories.some(c=>c[1].toLowerCase()===n.toLowerCase())){state.categories.push(['📌',n]);save();render()}}
+function removeCat(i){if(confirm('Remover esta categoria da lista?')){state.categories.splice(i,1);save();render()}}
+function fmtDate(s){return new Date(s+'T12:00:00').toLocaleDateString('pt-BR')}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function exportCSV(){const rows=[['Data','Descrição','Categoria','Tipo','Valor','Pagamento'],...state.tx.map(t=>[t.date,t.desc,t.cat,t.type,t.amount.toFixed(2),t.pay||''])];const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(';')).join('\\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='minhas-financas.csv';a.click()}
+function resetData(){if(confirm('Restaurar os dados de exemplo? Isso substitui os lançamentos atuais.')){localStorage.removeItem(KEY);localStorage.removeItem('household');location.reload()}}
+
+const SUPABASE_CONFIG={
+ url:()=>localStorage.getItem('sbUrl')||'',
+ key:()=>localStorage.getItem('sbKey')||''
+};
+
+function currentUser(){
+ try{return JSON.parse(localStorage.getItem('sbUser')||'null')}catch{return null}
+}
+function currentHousehold(){
+ try{return JSON.parse(localStorage.getItem('household')||'null')}catch{return null}
+}
+function setUser(u){ if(u)localStorage.setItem('sbUser',JSON.stringify(u)); else localStorage.removeItem('sbUser'); }
+function setHousehold(h){ if(h)localStorage.setItem('household',JSON.stringify(h)); else localStorage.removeItem('household'); }
+
+function updateSyncStatus(text,online=false){
+ const el=document.getElementById('syncStatus');
+ if(el){el.textContent='● '+text;el.style.color=online?'#00866a':'#66727d'}
+}
+
+async function auth(path,body){
+ const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
+ if(!url||!key) throw new Error('Configure a conexão do Supabase em Ajustes.');
+ const r=await fetch(url+'/auth/v1/'+path,{
+   method:'POST',
+   headers:{apikey:key,'Content-Type':'application/json'},
+   body:JSON.stringify(body)
+ });
+ const data=await r.json().catch(()=>({}));
+ if(!r.ok) throw new Error(data.msg||data.error_description||data.message||'Não foi possível concluir a operação.');
+ return data;
+}
+function session(){
+ try{return JSON.parse(localStorage.getItem('sbSession')||'null')}catch{return null}
+}
+async function refreshSession(){
+ const s=session();
+ if(!s?.refresh_token) return null;
+ const data=await auth('token?grant_type=refresh_token',{refresh_token:s.refresh_token});
+ localStorage.setItem('sbSession',JSON.stringify(data));
+ setUser(data.user||currentUser());
+ return data;
+}
+
+async function sb(path,opts={}){
+ let s=session();
+ if(!s?.access_token) throw new Error('Você precisa entrar na sua conta.');
+ const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
+ const doFetch=()=>fetch(url+'/rest/v1/'+path,{
+   ...opts,
+   headers:{apikey:key,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',
+     Prefer:opts.prefer||'return=minimal',...(opts.headers||{})}
+ });
+ let r=await doFetch();
+ if(r.status===401){
+   try{s=await refreshSession(); r=await doFetch()}catch{}
+ }
+ const text=await r.text();
+ if(!r.ok) throw new Error(text||'Erro na comunicação com o servidor.');
+ return text?JSON.parse(text):null;
+}
+
+async function rpc(fn,body={}){
+ let s=session();
+ if(!s?.access_token) throw new Error('Você precisa entrar na sua conta.');
+ const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
+ const doFetch=()=>fetch(url+'/rest/v1/rpc/'+fn,{
+   method:'POST',headers:{apikey:key,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},
+   body:JSON.stringify(body)
+ });
+ let r=await doFetch();
+ if(r.status===401){
+   try{s=await refreshSession();r=await doFetch()}catch{}
+ }
+ const text=await r.text();
+ if(!r.ok) throw new Error(text||'Não foi possível executar a operação.');
+ return text?JSON.parse(text):null;
+}
+
+let authMode='login';
+function openAuth(mode='login'){
+ authMode=mode;
+ const m=document.getElementById('authModal'); if(!m)return;
+ document.getElementById('authTitle').textContent=mode==='login'?'Entrar':'Criar conta';
+ document.getElementById('authSubmit').textContent=mode==='login'?'Entrar':'Criar conta';
+ document.getElementById('authMsg').textContent=mode==='login'?'':'Use um e-mail válido e uma senha com pelo menos 6 caracteres.';
+ m.classList.add('open');
+}
+function closeAuth(){document.getElementById('authModal')?.classList.remove('open')}
+async function submitAuth(e){
+ e.preventDefault();
+ const email=document.getElementById('authEmail').value.trim();
+ const password=document.getElementById('authPass').value;
+ const msg=document.getElementById('authMsg');
+ try{
+   msg.textContent=authMode==='login'?'Entrando…':'Criando sua conta…';
+   if(authMode==='signup'){
+     const data=await auth('signup',{email,password});
+     if(data.access_token){
+       localStorage.setItem('sbSession',JSON.stringify(data));
+       setUser(data.user);
+       closeAuth(); render(); await ensureHousehold();
+     }else{
+       msg.textContent='Conta criada. Se o Supabase pedir confirmação de e-mail, confirme o e-mail e depois entre.';
+       authMode='login';
+       document.getElementById('authTitle').textContent='Entrar';
+       document.getElementById('authSubmit').textContent='Entrar';
+     }
+   }else{
+     const data=await auth('token?grant_type=password',{email,password});
+     localStorage.setItem('sbSession',JSON.stringify(data));
+     setUser(data.user);
+     closeAuth(); render(); await ensureHousehold(); await syncNow();
+   }
+ }catch(err){msg.textContent='Não foi possível: '+err.message}
+}
+async function logout(){
+ localStorage.removeItem('sbSession');setUser(null);setHousehold(null);
+ updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
+ render();
+}
+
+async function saveConnection(){
+ const url=document.getElementById('sbUrl').value.trim().replace(/\/$/,'');
+ const key=document.getElementById('sbKey').value.trim();
+ localStorage.setItem('sbUrl',url);localStorage.setItem('sbKey',key);
+ const msg=document.getElementById('syncMsg');
+ try{
+   if(!url||!key) throw new Error('Informe a URL e a chave pública.');
+   msg.textContent='Conexão salva. Agora entre ou crie sua conta.';
+   updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
+ }catch(e){msg.textContent=e.message}
+}
+
+async function ensureHousehold(){
+ if(!currentUser()) return;
+ if(currentHousehold()) return currentHousehold();
+ try{
+   const rows=await sb('household_members?select=household_id,role&user_id=eq.'+encodeURIComponent(currentUser().id));
+   if(rows?.length){
+     const hid=rows[0].household_id;
+     const hs=await sb('households?select=id,name&id=eq.'+encodeURIComponent(hid));
+     const h={id:hid,name:hs?.[0]?.name||'Minhas Finanças',memberCount:1};
+     setHousehold(h);render();return h;
+   }
+ }catch(e){console.warn(e)}
+ return null;
+}
+async function createHousehold(){
+ try{
+   const h=await rpc('create_household',{p_name:'Minhas Finanças'});
+   const obj=Array.isArray(h)?h[0]:h;
+   if(obj?.id){setHousehold({id:obj.id,name:obj.name||'Minhas Finanças',memberCount:1});render();await syncNow()}
+ }catch(e){alert('Não foi possível criar a carteira: '+e.message)}
+}
+async function createInvite(){
+ try{
+   const h=currentHousehold(); if(!h) throw new Error('Crie sua carteira primeiro.');
+   const code=await rpc('create_household_invite',{p_household_id:h.id});
+   const c=Array.isArray(code)?code[0]:code;
+   const codeText=c?.code||String(code);
+   const box=document.getElementById('inviteBox');
+   if(box)box.innerHTML=`<div style="background:#f7faf9;border:1px dashed #bfe8dc;border-radius:12px;padding:14px"><b>Código do convite</b><div style="font-size:28px;letter-spacing:5px;font-weight:900;color:var(--green);margin:6px 0">${esc(codeText)}</div><small style="color:var(--muted)">Envie este código para sua esposa. Ela deve criar a conta dela e informar o código em “Entrar na carteira”.</small></div>`;
+ }catch(e){alert('Não foi possível gerar o convite: '+e.message)}
+}
+async function joinByInvite(){
+ const code=document.getElementById('inviteCodeInput')?.value.trim().toUpperCase();
+ if(!code){alert('Informe o código do convite.');return}
+ if(!currentUser()){openAuth('login');return}
+ try{
+   const h=await rpc('join_household',{p_code:code});
+   const obj=Array.isArray(h)?h[0]:h;
+   if(obj?.id){
+     setHousehold({id:obj.id,name:obj.name||'Minhas Finanças',memberCount:2});
+     alert('Você entrou na carteira compartilhada!');
+     await syncNow();render();
+   }
+ }catch(e){alert('Não foi possível entrar: '+e.message)}
+}
+
+function newId(){return (crypto?.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(16).slice(2))}
+function localTxPayload(t,hid){
+ return {id:String(t.id),household_id:hid,user_id:currentUser()?.id||null,date:t.date,description:t.desc,category:t.cat,icon:t.icon,amount:t.amount,type:t.type,payment:t.pay||'',updated_at:new Date().toISOString()};
+}
+function localCardPayload(c,hid){
+ return {id:String(c.id),household_id:hid,user_id:currentUser()?.id||null,name:c.name,icon:c.icon||'💳',credit_limit:Number(c.limit)||0,closing_day:Number(c.closing)||1,due_day:Number(c.due)||1,updated_at:new Date().toISOString()};
+}
+
+async function syncNow(){
+ if(!navigator.onLine){updateSyncStatus('offline/local');return}
+ if(!currentUser()||!currentHousehold()){updateSyncStatus('online • entre para sincronizar',true);return}
+ try{
+   updateSyncStatus('sincronizando…',true);
+   const h=currentHousehold().id;
+
+   const remoteTx=await sb('finance_tx?select=*&household_id=eq.'+encodeURIComponent(h));
+   const localById=new Map(state.tx.map(t=>[String(t.id),t]));
+   const remoteById=new Map((remoteTx||[]).map(t=>[String(t.id),t]));
+
+   const missing=[...localById.values()].filter(t=>!remoteById.has(String(t.id)));
+   if(missing.length) await sb('finance_tx',{method:'POST',body:JSON.stringify(missing.map(t=>localTxPayload(t,h)))});
+
+   const remoteNew=(remoteTx||[]).filter(t=>!localById.has(String(t.id)));
+   if(remoteNew.length){
+     state.tx.push(...remoteNew.map(t=>({id:t.id,date:t.date,desc:t.description,cat:t.category,icon:t.icon||'💸',amount:Number(t.amount),type:t.type,pay:t.payment})));
+   }
+
+   const remoteCards=await sb('cards?select=*&household_id=eq.'+encodeURIComponent(h));
+   const localCards=new Map((state.cards||[]).map(c=>[String(c.id),c]));
+   const remoteCardsById=new Map((remoteCards||[]).map(c=>[String(c.id),c]));
+   const missingCards=[...localCards.values()].filter(c=>!remoteCardsById.has(String(c.id)));
+   if(missingCards.length) await sb('cards',{method:'POST',body:JSON.stringify(missingCards.map(c=>localCardPayload(c,h)))});
+   const newCards=(remoteCards||[]).filter(c=>!localCards.has(String(c.id)));
+   if(newCards.length){
+     state.cards=[...(state.cards||[]),...newCards.map(c=>({id:c.id,name:c.name,icon:c.icon||'💳',limit:Number(c.credit_limit)||0,closing:Number(c.closing_day)||1,due:Number(c.due_day)||1}))];
+   }
+
+   save();render();
+   updateSyncStatus('online • sincronizado',true);
+ }catch(e){updateSyncStatus('online • tente sincronizar',true);console.warn(e)}
+}
+
+window.addEventListener('online',()=>syncNow());
+window.addEventListener('offline',()=>updateSyncStatus('offline/local'));
+document.addEventListener('DOMContentLoaded',async()=>{
+ updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
+ if(navigator.onLine&&currentUser()){
+   try{await refreshSession()}catch{}
+   await ensureHousehold();
+   await syncNow();
+ }
+});
+
+</script>
+<script>
+if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script></body>
+</html>
