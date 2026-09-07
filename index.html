@@ -36,18 +36,19 @@ button,input,select{font:inherit}button{cursor:pointer}
 @media(max-width:900px){.sidebar{display:none}.main{margin:0;width:100%;padding:18px 16px 85px}.grid{grid-template-columns:repeat(2,1fr)}.content{grid-template-columns:1fr}.mobilebar{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:8;padding:7px;justify-content:space-around}.mobilebar button{border:0;background:none;color:#697680;font-size:11px;font-weight:700}.mobilebar button.active{color:var(--green)}.top{align-items:flex-start}.formgrid{grid-template-columns:1fr}}
 @media(max-width:520px){.grid{grid-template-columns:1fr 1fr}.metric b{font-size:20px}.month strong{min-width:95px}.table th:nth-child(3),.table td:nth-child(3){display:none}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="manifest" href="manifest.json"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E💰%3C/text%3E%3C/svg%3E%22%3E</head>
 <body>
-<div id="syncStatus" style="position:fixed;right:14px;top:10px;z-index:20;font-size:11px;color:#66727d;background:#fff;border:1px solid #e3e7eb;border-radius:99px;padding:5px 9px">● offline/local</div><div class="app">
+<div id="syncStatus" style="position:fixed;right:14px;top:10px;z-index:20;font-size:11px;color:#00866a;background:#fff;border:1px solid #e3e7eb;border-radius:99px;padding:5px 9px">● conectado à planilha</div>
+<div class="app">
   <aside class="sidebar">
-    <div class="brand">Minhas Finanças<small>controle financeiro pessoal</small></div>
+    <div class="brand">Minhas Finanças<small>controle compartilhado</small></div>
     <div class="nav">
       <button class="active" data-page="dashboard">▦ &nbsp; Painel</button>
       <button data-page="transactions">☷ &nbsp; Transações</button>
       <button data-page="new">＋ &nbsp; Novo lançamento</button>
       <button data-page="cards">▣ &nbsp; Cartões</button>
-      <button data-page="settings">⚙ &nbsp; Ajustes</button><button onclick="syncNow()">☁ &nbsp; Sincronizar</button>
+      <button data-page="settings">⚙ &nbsp; Ajustes</button>
+      <button onclick="carregarDadosDaPlanilha()">☁ &nbsp; Sincronizar</button>
     </div>
   </aside>
   <main class="main" id="main"></main>
@@ -77,35 +78,20 @@ button,input,select{font:inherit}button{cursor:pointer}
 </div></div>
 
 <script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec";
 
-(function migrateOldData(){
-  try{
-    if(!localStorage.getItem('minhas_financas_v2')){
-      const old=localStorage.getItem('grana_certa_v1');
-      if(old)localStorage.setItem('minhas_financas_v2',old);
-    }
-  }catch(e){}
-})();
-
-const KEY='minhas_financas_v2';
-let state=JSON.parse(localStorage.getItem(KEY)||'null')||{
-  cards:[{id:1,name:'Cartão de crédito',icon:'💳',limit:5000,closing:10,due:17}],
-  categories:[
+let state = {
+  cards: [{id:1,name:'Cartão de crédito',icon:'💳',limit:5000,closing:10,due:17}],
+  categories: [
     ['🍔','Alimentação'],['📺','Assinaturas'],['📚','Educação'],['🎉','Lazer'],['🛒','Mercado'],
-    ['🏠','Moradia'],['🎁','Outros gastos'],['🐾','Pets'],['👕','Roupas'],['💊','Saúde'],['🚗','Transporte']
+    ['🏠','Moradia'],['🎁','Outros gastos'],['🐾','Pets'],['👕','Roupas'],['💊','Saúde'],['🚗','Transporte'],['💰','Recebimento']
   ],
-  tx:[
-    {id:1,date:'2026-09-05',desc:'Uber de volta',cat:'Transporte',icon:'🚗',amount:19.80,type:'expense',pay:'PIX'},
-    {id:2,date:'2026-09-05',desc:'Almoço',cat:'Alimentação',icon:'🍔',amount:41.90,type:'expense',pay:'Dinheiro/débito'},
-    {id:3,date:'2026-09-04',desc:'Café da manhã',cat:'Alimentação',icon:'🍔',amount:11,type:'expense',pay:'Dinheiro/débito'},
-    {id:4,date:'2026-09-03',desc:'Salário',cat:'Recebimento',icon:'💰',amount:5200,type:'income',pay:'Transferência'},
-    {id:5,date:'2026-09-02',desc:'Mercado da semana',cat:'Mercado',icon:'🛒',amount:143.20,type:'expense',pay:'Cartão de crédito'}
-  ]
+  tx: []
 };
+
 let currentPage='dashboard', currentMonth=new Date('2026-09-07T12:00:00'), currentType='expense';
-state.cards=state.cards||[];
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
-function money(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+
+function money(n){return Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function monthKey(){return currentMonth.toISOString().slice(0,7)}
 function monthName(){return currentMonth.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
 function monthNav(){return `<div class="month"><button onclick="changeMonth(-1)">‹</button><strong>${monthName()}</strong><button onclick="changeMonth(1)">›</button></div>`}
@@ -113,12 +99,13 @@ function header(title,sub=''){return `<div class="top"><div class="title"><h1>${
 function setPage(p){currentPage=p;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===p));render()}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>setPage(b.dataset.page));
 function changeMonth(d){currentMonth.setMonth(currentMonth.getMonth()+d);render()}
-function monthTx(){return state.tx.filter(t=>t.date.slice(0,7)===monthKey())}
+function monthTx(){return state.tx.filter(t=>t.date && t.date.slice(0,7)===monthKey())}
+
 function dashboard(){
  const tx=monthTx(), inc=tx.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0), out=tx.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
  const cats=state.categories.map(c=>({icon:c[0],name:c[1],v:tx.filter(t=>t.cat===c[1]&&t.type==='expense').reduce((a,t)=>a+t.amount,0)})).filter(c=>c.v).sort((a,b)=>b.v-a.v);
  const recent=[...tx].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
- return header('Painel','Uma visão rápida do seu dinheiro')+
+ return header('Painel','Painel sincronizado com a planilha')+
  `<div class="grid">
   <div class="card metric"><span>Saldo do mês</span><b>${money(inc-out)}</b></div>
   <div class="card metric in"><span>Entradas</span><b>${money(inc)}</b></div>
@@ -130,122 +117,40 @@ function dashboard(){
   <div class="card"><h2>Últimos lançamentos</h2>${recent.length?recent.map(txRow).join(''):'<div class="empty">Nenhum lançamento.</div>'}</div>
  </div>`;
 }
+
 function txRow(t){return `<div class="tx"><div class="ico">${t.icon||'💸'}</div><div class="txmain"><b>${esc(t.desc)}</b><small>${esc(t.cat)} · ${fmtDate(t.date)}${t.pay?' · '+esc(t.pay):''}</small></div><div class="amount ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</div></div>`}
+
 function transactions(){
  const tx=[...monthTx()].sort((a,b)=>b.date.localeCompare(a.date));
- return header('Transações','Todos os lançamentos do mês')+
+ return header('Transações','Lançamentos da planilha compartilhada')+
  `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="tabs"><button class="tab active" onclick="render()">Todos</button></div><button class="btn" onclick="openModal()">＋ Novo lançamento</button></div>
- ${tx.length?`<table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th class="right">Valor</th><th></th></tr></thead><tbody>${tx.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.icon||'💸'} ${esc(t.desc)}</td><td>${esc(t.cat)}</td><td>${esc(t.pay||'')}</td><td class="right ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</td><td class="right"><button class="iconbtn" title="Excluir" onclick="delTx(${t.id})">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nenhum lançamento neste mês.</div>'}</div>`;
+ ${tx.length?`<table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th class="right">Valor</th><th></th></tr></thead><tbody>${tx.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.icon||'💸'} ${esc(t.desc)}</td><td>${esc(t.cat)}</td><td>${esc(t.pay||'')}</td><td class="right ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</td><td class="right"><button class="iconbtn" title="Excluir" onclick="delTx('${t.id}')">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nenhum lançamento neste mês.</div>'}</div>`;
 }
-function newPage(){return header('Novo lançamento','Registre uma entrada ou saída')+`<div class="card" style="max-width:700px"><h2>Adicionar movimentação</h2><p style="color:var(--muted)">O formulário também pode ser aberto pelo botão +. Os dados ficam salvos neste navegador.</p><button class="btn" onclick="openModal()">＋ Abrir formulário</button></div>`}
+
+function newPage(){return header('Novo lançamento','Adicionar na planilha')+`<div class="card" style="max-width:700px"><h2>Adicionar movimentação</h2><button class="btn" onclick="openModal()">＋ Abrir formulário</button></div>`}
+
 function cardsPage(){
  const cards=state.cards||[];
  const creditTx=state.tx.filter(t=>t.pay==='Cartão de crédito'&&t.type==='expense');
- const total=creditTx.filter(t=>t.date.slice(0,7)===monthKey()).reduce((a,t)=>a+t.amount,0);
- const installments=creditTx.filter(t=>/\(\d+\/\d+\)$/.test(t.desc));
- return header('Cartões','Controle das compras no crédito')+
- `<div style="display:flex;justify-content:flex-end;margin-bottom:15px"><button class="btn" onclick="openCardModal()">＋ Adicionar cartão</button></div>
- <div class="grid">
- ${cards.length?cards.map(c=>{
-   const used=total; const pct=c.limit?Math.min(100,used/c.limit*100):0;
-   return `<div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:start"><div><span style="color:var(--muted);font-size:13px;font-weight:700">Cartão</span><h2 style="margin:8px 0">${c.icon||'💳'} ${esc(c.name)}</h2></div><button class="iconbtn" onclick="removeCard(${c.id})">🗑</button></div>
+ const total=creditTx.filter(t=>t.date && t.date.slice(0,7)===monthKey()).reduce((a,t)=>a+t.amount,0);
+ return header('Cartões','Controle de crédito')+
+ `<div class="grid">
+ ${cards.map(c=>`<div class="card">
+    <div><span style="color:var(--muted);font-size:13px;font-weight:700">Cartão</span><h2 style="margin:8px 0">${c.icon} ${c.name}</h2></div>
     <div style="font-size:12px;color:var(--muted)">Fatura de ${monthName()}</div>
     <div style="font-size:26px;font-weight:900;margin:5px 0 12px">${money(total)}</div>
-    <div class="cathead"><span>Limite utilizado</span><span>${c.limit?money(c.limit-used)+' disponível':'Sem limite cadastrado'}</span></div>
-    <div class="bar"><i style="width:${pct}%"></i></div>
-    <div style="display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)"><span>Fecha dia <b>${c.closing}</b></span><span>Vence dia <b>${c.due}</b></span></div>
-   </div>`}).join(''):'<div class="card empty" style="grid-column:1/-1">Nenhum cartão cadastrado. Adicione seu primeiro cartão para acompanhar limite e fatura.</div>'}
- </div>
- <div class="content">
-  <div class="card"><h2>Fatura atual</h2>${creditTx.filter(t=>t.date.slice(0,7)===monthKey()).length?creditTx.filter(t=>t.date.slice(0,7)===monthKey()).sort((a,b)=>b.date.localeCompare(a.date)).map(txRow).join(''):'<div class="empty">Nenhuma compra no cartão neste mês.</div>'}</div>
-  <div class="card"><h2>Parcelamentos</h2>${installments.length?installments.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<div class="tx"><div class="ico">📆</div><div class="txmain"><b>${esc(t.desc)}</b><small>${fmtDate(t.date)} · ${esc(t.cat)}</small></div><div class="amount expense">${money(t.amount)}</div></div>`).join(''):'<div class="empty">Nenhum parcelamento registrado.</div>'}</div>
- </div>
- <div class="modal" id="cardModal"><div class="modalbox">
-  <div class="modalhead"><h2>Novo cartão</h2><button class="iconbtn" onclick="closeCardModal()">✕</button></div>
-  <form onsubmit="saveCard(event)">
-   <div class="formgrid">
-    <div class="field"><label>Nome do cartão</label><input id="cardName" placeholder="Ex.: Nubank" required></div>
-    <div class="field"><label>Limite</label><input id="cardLimit" type="number" step="0.01" min="0" placeholder="5000"></div>
-    <div class="field"><label>Dia de fechamento</label><input id="cardClosing" type="number" min="1" max="31" value="10" required></div>
-    <div class="field"><label>Dia de vencimento</label><input id="cardDue" type="number" min="1" max="31" value="17" required></div>
-   </div>
-   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn secondary" onclick="closeCardModal()">Cancelar</button><button class="btn">Salvar cartão</button></div>
-  </form>
- </div></div>`;
+   </div>`).join('')}
+ </div>`;
 }
-function openCardModal(){document.getElementById('cardModal')?.classList.add('open')}
-function closeCardModal(){document.getElementById('cardModal')?.classList.remove('open')}
-function saveCard(e){e.preventDefault();state.cards=state.cards||[];state.cards.push({id:newId(),name:document.getElementById('cardName').value.trim(),icon:'💳',limit:Number(document.getElementById('cardLimit').value)||0,closing:Number(document.getElementById('cardClosing').value),due:Number(document.getElementById('cardDue').value)});save();render()}
-function removeCard(id){if(confirm('Remover este cartão?')){state.cards=state.cards.filter(c=>c.id!==id);save();render()}}
+
 function settings(){
- const u = currentUser();
- const h = currentHousehold();
- return header('Ajustes','Sua conta e sua carteira compartilhada')+
+ return header('Ajustes','Configuração da Planilha Compartilhada')+
  `<div class="content">
-  <div class="card"><h2>Minha conta</h2>
-   ${u ? `
-    <div style="background:#eef8f5;border-radius:12px;padding:13px;margin-bottom:14px">
-      <b>${esc(u.email||'Conta conectada')}</b><br>
-      <small style="color:var(--muted)">Conectado ao Minhas Finanças</small>
-    </div>
-    <button class="btn secondary" onclick="logout()">Sair da conta</button>
-   ` : `
-    <p style="color:var(--muted)">Entre ou crie sua conta para guardar seus dados na nuvem e compartilhar a carteira.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" onclick="openAuth('login')">Entrar</button>
-      <button class="btn secondary" onclick="openAuth('signup')">Criar conta</button>
-    </div>
-   `}
+  <div class="card"><h2>Status da Conexão</h2>
+   <p style="color:var(--muted)">O aplicativo está conectado diretamente à sua Planilha do Google. Você e sua esposa podem usar ao mesmo tempo.</p>
+   <button class="btn" onclick="carregarDadosDaPlanilha()">Sincronizar Agora</button>
   </div>
-
-  <div class="card"><h2>Carteira compartilhada</h2>
-   ${h ? `
-    <div style="background:#eef8f5;border-radius:12px;padding:13px;margin-bottom:14px">
-      <b>${esc(h.name||'Minhas Finanças')}</b><br>
-      <small style="color:var(--muted)">${h.memberCount||1} pessoa(s) conectada(s)</small>
-    </div>
-    <p style="color:var(--muted)">Para sua esposa entrar na mesma carteira, gere um convite e envie o código para ela.</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn" onclick="createInvite()">Gerar convite</button>
-      <button class="btn secondary" onclick="syncNow()">Sincronizar agora</button>
-    </div>
-    <div id="inviteBox" style="margin-top:12px"></div>
-   ` : `
-    <p style="color:var(--muted)">Depois de entrar, você poderá criar sua carteira e gerar um convite para sua esposa.</p>
-    ${u ? '<button class="btn" onclick="createHousehold()">Criar minha carteira</button>' : ''}
-   `}
-  </div>
-
-  <div class="card"><h2>Conectar o aplicativo</h2>
-   <p style="color:var(--muted);font-size:13px">Esta parte é técnica e só precisa ser configurada uma vez neste aparelho. Não coloque aqui senha da conta nem chave secreta.</p>
-   <div class="field" style="margin:12px 0"><label>URL do projeto Supabase</label><input id="sbUrl" placeholder="https://seu-projeto.supabase.co" value="${esc(localStorage.getItem('sbUrl')||'')}"></div>
-   <div class="field" style="margin:12px 0"><label>Chave pública (anon/publishable)</label><input id="sbKey" placeholder="eyJ..." value="${esc(localStorage.getItem('sbKey')||'')}"></div>
-   <button class="btn secondary" onclick="saveConnection()">Salvar conexão</button>
-   <button class="btn secondary" style="margin-left:8px" onclick="testConnection()">Testar conexão</button>
-   <p id="syncMsg" style="font-size:12px;color:var(--muted);margin-top:12px">A chave deve ser somente a pública. Nunca use service_role/secret key.</p>
-  </div>
-
-  <div class="card"><h2>Entrar na carteira da sua esposa</h2>
-   <p style="color:var(--muted)">Se ela lhe enviar um código de convite, use-o aqui para entrar na carteira dela.</p>
-   <div style="display:flex;gap:8px">
-    <input id="inviteCodeInput" placeholder="Ex.: AB7K9P" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:11px;text-transform:uppercase">
-    <button class="btn" onclick="joinByInvite()">Entrar</button>
-   </div>
-  </div>
-
-  <div class="card"><h2>Categorias</h2>${state.categories.map((c,i)=>`<div class="tx"><div class="ico">${c[0]}</div><div class="txmain"><b>${esc(c[1])}</b><small>Categoria ativa</small></div><button class="iconbtn" onclick="removeCat(${i})">🗑</button></div>`).join('')}<div style="display:flex;gap:8px;margin-top:15px"><input id="newCat" placeholder="Nova categoria" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:11px"><button class="btn" onclick="addCat()">Adicionar</button></div></div>
- </div>
-
- <div class="modal" id="authModal"><div class="modalbox">
-   <div class="modalhead"><h2 id="authTitle">Entrar</h2><button class="iconbtn" onclick="closeAuth()">✕</button></div>
-   <form onsubmit="submitAuth(event)">
-    <div class="field" style="margin-bottom:12px"><label>E-mail</label><input id="authEmail" type="email" required placeholder="voce@email.com"></div>
-    <div class="field"><label>Senha</label><input id="authPass" type="password" minlength="6" required placeholder="mínimo de 6 caracteres"></div>
-    <p id="authMsg" style="font-size:12px;color:var(--muted)"></p>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn secondary" onclick="closeAuth()">Cancelar</button><button class="btn" id="authSubmit">Entrar</button></div>
-   </form>
- </div></div>`;
+ </div>`;
 }
 
 function render(){document.getElementById('main').innerHTML=currentPage==='dashboard'?dashboard():currentPage==='transactions'?transactions():currentPage==='new'?newPage():currentPage==='cards'?cardsPage():settings();populateCategory()}
@@ -253,307 +158,111 @@ function populateCategory(){const s=document.getElementById('category');if(!s)re
 function openModal(){document.getElementById('modal').classList.add('open');document.getElementById('date').value=new Date().toISOString().slice(0,10);populateCategory()}
 function closeModal(){document.getElementById('modal').classList.remove('open');document.getElementById('txForm').reset()}
 function setType(t){currentType=t;document.getElementById('expenseBtn').classList.toggle('active',t==='expense');document.getElementById('incomeBtn').classList.toggle('active',t==='income')}
-function saveTx(e){e.preventDefault();const cat=document.getElementById('category').value;const icon=(state.categories.find(c=>c[1]===cat)||['💸'])[0];const amount=Number(document.getElementById('amount').value);const n=Number(document.getElementById('installments').value);const baseDate=document.getElementById('date').value;for(let i=0;i<n;i++){let d=new Date(baseDate+'T12:00:00');d.setMonth(d.getMonth()+i);state.tx.push({id:newId(),date:d.toISOString().slice(0,10),desc:document.getElementById('desc').value+(n>1?` (${i+1}/${n})`:''),cat,icon,amount:amount/n,type:currentType,pay:document.getElementById('payment').value})}save();closeModal();setPage('transactions'); if(navigator.onLine) syncNow()}
-function delTx(id){if(confirm('Excluir este lançamento?')){state.tx=state.tx.filter(t=>t.id!==id);save();render(); if(navigator.onLine) syncNow()}}
-function addCat(){const el=document.getElementById('newCat');const n=el.value.trim();if(!n)return;if(!state.categories.some(c=>c[1].toLowerCase()===n.toLowerCase())){state.categories.push(['📌',n]);save();render()}}
-function removeCat(i){if(confirm('Remover esta categoria da lista?')){state.categories.splice(i,1);save();render()}}
-function fmtDate(s){return new Date(s+'T12:00:00').toLocaleDateString('pt-BR')}
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function exportCSV(){const rows=[['Data','Descrição','Categoria','Tipo','Valor','Pagamento'],...state.tx.map(t=>[t.date,t.desc,t.cat,t.type,t.amount.toFixed(2),t.pay||''])];const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(';')).join('\\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='minhas-financas.csv';a.click()}
-function resetData(){if(confirm('Restaurar os dados de exemplo? Isso substitui os lançamentos atuais.')){localStorage.removeItem(KEY);localStorage.removeItem('household');location.reload()}}
 
-const SUPABASE_CONFIG={
- url:()=>{
-   let u=(localStorage.getItem('sbUrl')||'').trim();
-   u=u.replace(/\/+(rest\/v1|auth\/v1)\/?$/i,'');
-   return u.replace(/\/+$/,'');
- },
- key:()=>{
-   let k=(localStorage.getItem('sbKey')||'').trim();
-   return k;
- }
-};
-
-function currentUser(){
- try{return JSON.parse(localStorage.getItem('sbUser')||'null')}catch{return null}
-}
-function currentHousehold(){
- try{return JSON.parse(localStorage.getItem('household')||'null')}catch{return null}
-}
-function setUser(u){ if(u)localStorage.setItem('sbUser',JSON.stringify(u)); else localStorage.removeItem('sbUser'); }
-function setHousehold(h){ if(h)localStorage.setItem('household',JSON.stringify(h)); else localStorage.removeItem('household'); }
-
-function updateSyncStatus(text,online=false){
- const el=document.getElementById('syncStatus');
- if(el){el.textContent='● '+text;el.style.color=online?'#00866a':'#66727d'}
-}
-
-let sbClient=null;
-function getSbClient(){
- const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
- if(!url||!key) throw new Error('Configure a conexão do Supabase em Ajustes.');
- if(!window.supabase||!window.supabase.createClient) throw new Error('Não consegui carregar o conector do Supabase. Atualize a página e tente novamente.');
- if(!sbClient) sbClient=window.supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
- return sbClient;
-}
-async function auth(path,body){
- try{
-   const client=getSbClient();
-   if(path==='signup') {
-     const {data,error}=await client.auth.signUp({email:body.email,password:body.password});
-     if(error) throw error;
-     return data;
-   }
-   if(path==='token?grant_type=password') {
-     const {data,error}=await client.auth.signInWithPassword({email:body.email,password:body.password});
-     if(error) throw error;
-     return {access_token:data.session?.access_token,refresh_token:data.session?.refresh_token,user:data.user,session:data.session};
-   }
-   if(path==='token?grant_type=refresh_token') {
-     const {data,error}=await client.auth.refreshSession({refresh_token:body.refresh_token});
-     if(error) throw error;
-     return {access_token:data.session?.access_token,refresh_token:data.session?.refresh_token,user:data.user,session:data.session};
-   }
-   throw new Error('Operação de autenticação não reconhecida.');
- }catch(e){
-   throw new Error(e?.message||'Não foi possível conectar ao Supabase.');
- }
-}
-
-function session(){
- try{return JSON.parse(localStorage.getItem('sbSession')||'null')}catch{return null}
-}
-async function refreshSession(){
- const s=session();
- if(!s?.refresh_token) return null;
- const data=await auth('token?grant_type=refresh_token',{refresh_token:s.refresh_token});
- localStorage.setItem('sbSession',JSON.stringify(data));
- setUser(data.user||currentUser());
- return data;
-}
-
-async function sb(path,opts={}){
- let s=session();
- if(!s?.access_token) throw new Error('Você precisa entrar na sua conta.');
- const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
- const doFetch=()=>fetch(url+'/rest/v1/'+path,{
-   ...opts,
-   headers:{apikey:key,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',
-     Prefer:opts.prefer||'return=minimal',...(opts.headers||{})}
- });
- let r=await doFetch();
- if(r.status===401){
-   try{s=await refreshSession(); r=await doFetch()}catch{}
- }
- const text=await r.text();
- if(!r.ok) throw new Error(text||'Erro na comunicação com o servidor.');
- return text?JSON.parse(text):null;
-}
-
-async function rpc(fn,body={}){
- let s=session();
- if(!s?.access_token) throw new Error('Você precisa entrar na sua conta.');
- const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
- const doFetch=()=>fetch(url+'/rest/v1/rpc/'+fn,{
-   method:'POST',headers:{apikey:key,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},
-   body:JSON.stringify(body)
- });
- let r=await doFetch();
- if(r.status===401){
-   try{s=await refreshSession();r=await doFetch()}catch{}
- }
- const text=await r.text();
- if(!r.ok) throw new Error(text||'Não foi possível executar a operação.');
- return text?JSON.parse(text):null;
-}
-
-let authMode='login';
-function openAuth(mode='login'){
- authMode=mode;
- const m=document.getElementById('authModal'); if(!m)return;
- document.getElementById('authTitle').textContent=mode==='login'?'Entrar':'Criar conta';
- document.getElementById('authSubmit').textContent=mode==='login'?'Entrar':'Criar conta';
- document.getElementById('authMsg').textContent=mode==='login'?'':'Use um e-mail válido e uma senha com pelo menos 6 caracteres.';
- m.classList.add('open');
-}
-function closeAuth(){document.getElementById('authModal')?.classList.remove('open')}
-async function submitAuth(e){
+async function saveTx(e){
  e.preventDefault();
- const email=document.getElementById('authEmail').value.trim();
- const password=document.getElementById('authPass').value;
- const msg=document.getElementById('authMsg');
- try{
-   msg.textContent=authMode==='login'?'Entrando…':'Criando sua conta…';
-   if(authMode==='signup'){
-     const data=await auth('signup',{email,password});
-     if(data.access_token){
-       localStorage.setItem('sbSession',JSON.stringify(data));
-       setUser(data.user);
-       closeAuth(); render(); await ensureHousehold();
-     }else{
-       msg.textContent='Conta criada. Se o Supabase pedir confirmação de e-mail, confirme o e-mail e depois entre.';
-       authMode='login';
-       document.getElementById('authTitle').textContent='Entrar';
-       document.getElementById('authSubmit').textContent='Entrar';
-     }
-   }else{
-     const data=await auth('token?grant_type=password',{email,password});
-     localStorage.setItem('sbSession',JSON.stringify(data));
-     setUser(data.user);
-     closeAuth(); render(); await ensureHousehold(); await syncNow();
+ const cat=document.getElementById('category').value;
+ const icon=(state.categories.find(c=>c[1]===cat)||['💸'])[0];
+ const amount=Number(document.getElementById('amount').value);
+ const n=Number(document.getElementById('installments').value);
+ const baseDate=document.getElementById('date').value;
+ const desc=document.getElementById('desc').value;
+ const pay=document.getElementById('payment').value;
+
+ closeModal();
+ document.getElementById('syncStatus').textContent='● salvando...';
+
+ for(let i=0;i<n;i++){
+   let d=new Date(baseDate+'T12:00:00');
+   d.setMonth(d.getMonth()+i);
+   let novoTx = {
+     id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+     date: d.toISOString().slice(0,10),
+     desc: desc + (n>1?` (${i+1}/${n})`:''),
+     cat: cat,
+     icon: icon,
+     amount: amount/n,
+     type: currentType,
+     pay: pay
+   };
+   
+   state.tx.push(novoTx);
+   
+   try {
+     await fetch(SCRIPT_URL, {
+       method: 'POST',
+       mode: 'no-cors',
+       headers: {'Content-Type': 'application/json'},
+       body: JSON.stringify({
+         action: 'add',
+         id: novoTx.id,
+         data: novoTx.date,
+         descricao: novoTx.desc,
+         categoria: novoTx.cat,
+         tipo: novoTx.type,
+         valor: novoTx.amount,
+         pagamento: novoTx.pay
+       })
+     });
+   } catch(err) {
+     console.error('Erro ao salvar na planilha', err);
    }
- }catch(err){msg.textContent='Não foi possível: '+err.message}
+ }
+
+ render();
+ document.getElementById('syncStatus').textContent='● sincronizado';
 }
-async function logout(){
- localStorage.removeItem('sbSession');setUser(null);setHousehold(null);
- updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
+
+async function delTx(id){
+ if(!confirm('Excluir este lançamento?')) return;
+ state.tx = state.tx.filter(t => t.id !== id);
+ render();
+ document.getElementById('syncStatus').textContent='● excluindo...';
+ try {
+   await fetch(SCRIPT_URL, {
+     method: 'POST',
+     mode: 'no-cors',
+     headers: {'Content-Type': 'application/json'},
+     body: JSON.stringify({ action: 'delete', id: id })
+   });
+   document.getElementById('syncStatus').textContent='● sincronizado';
+ } catch(err) {
+   console.error('Erro ao excluir na planilha', err);
+ }
  render();
 }
 
-async function testConnection(){
- const msg=document.getElementById('syncMsg');
- try{
-   const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
-   if(!url||!key) throw new Error('URL ou chave pública não preenchida.');
-   msg.textContent='Testando conexão com o Supabase…';
-   const r=await fetch(url+'/auth/v1/settings',{method:'GET',headers:{apikey:key}});
-   const text=await r.text();
-   if(!r.ok) throw new Error('Supabase respondeu HTTP '+r.status+(text?' — '+text.slice(0,180):''));
-   msg.textContent='CONEXÃO OK! O Supabase respondeu normalmente. Agora podemos testar a criação da conta.';
-   updateSyncStatus('conectado ao Supabase',true);
- }catch(e){
-   msg.textContent='TESTE FALHOU: '+(e?.message||e);
-   updateSyncStatus('falha na conexão',false);
-   console.error('Teste Supabase:',e);
- }
-}
-async function saveConnection(){
- const url=document.getElementById('sbUrl').value.trim().replace(/\/$/,'');
- const key=document.getElementById('sbKey').value.trim();
- localStorage.setItem('sbUrl',url);localStorage.setItem('sbKey',key);
- const msg=document.getElementById('syncMsg');
- try{
-   if(!url||!key) throw new Error('Informe a URL e a chave pública.');
-   msg.textContent='Conexão salva. Agora entre ou crie sua conta.';
-   updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
- }catch(e){msg.textContent=e.message}
-}
-
-async function ensureHousehold(){
- if(!currentUser()) return;
- if(currentHousehold()) return currentHousehold();
- try{
-   const client = getSbClient();
-   const { data: rows, error } = await client
-     .from('household_members')
-     .select('household_id, role')
-     .eq('user_id', currentUser().id);
-
-   if(error) throw error;
-
-   if(rows?.length){
-     const hid = rows[0].household_id;
-     const { data: hs } = await client
-       .from('households')
-       .select('id, name')
-       .eq('id', hid);
-
-     const h = { id: hid, name: hs?.[0]?.name || 'Minhas Finanças', memberCount: rows.length };
-     setHousehold(h);
+async function carregarDadosDaPlanilha(){
+ document.getElementById('syncStatus').textContent='● carregando...';
+ try {
+   const res = await fetch(SCRIPT_URL);
+   const rows = await res.json();
+   if(Array.isArray(rows)){
+     state.tx = rows.map(r => ({
+       id: String(r.id || ''),
+       date: String(r.data || '').slice(0,10),
+       desc: String(r.descricao || ''),
+       cat: String(r.categoria || 'Outros'),
+       icon: (state.categories.find(c=>c[1]===r.categoria)||['💸'])[0],
+       amount: Number(r.valor || 0),
+       type: String(r.tipo || 'expense'),
+       pay: String(r.pagamento || '')
+     })).filter(t => t.id);
      render();
-     return h;
+     document.getElementById('syncStatus').textContent='● conectado à planilha';
    }
- }catch(e){
-   console.warn('Erro ao buscar carteira:', e);
+ } catch(e) {
+   console.error('Erro ao carregar dados:', e);
+   document.getElementById('syncStatus').textContent='● erro ao sincronizar';
  }
- return null;
 }
 
-async function createHousehold(){
- try{
-   const h=await rpc('create_household',{p_name:'Minhas Finanças'});
-   const obj=Array.isArray(h)?h[0]:h;
-   if(obj?.id){setHousehold({id:obj.id,name:obj.name||'Minhas Finanças',memberCount:1});render();await syncNow()}
- }catch(e){alert('Não foi possível criar a carteira: '+e.message)}
-}
-async function createInvite(){
- try{
-   const h=currentHousehold(); if(!h) throw new Error('Crie sua carteira primeiro.');
-   const code=await rpc('create_household_invite',{p_household_id:h.id});
-   const c=Array.isArray(code)?code[0]:code;
-   const codeText=c?.code||String(code);
-   const box=document.getElementById('inviteBox');
-   if(box)box.innerHTML=`<div style="background:#f7faf9;border:1px dashed #bfe8dc;border-radius:12px;padding:14px"><b>Código do convite</b><div style="font-size:28px;letter-spacing:5px;font-weight:900;color:var(--green);margin:6px 0">${esc(codeText)}</div><small style="color:var(--muted)">Envie este código para sua esposa. Ela deve criar a conta dela e informar o código em “Entrar na carteira”.</small></div>`;
- }catch(e){alert('Não foi possível gerar o convite: '+e.message)}
-}
-async function joinByInvite(){
- const code=document.getElementById('inviteCodeInput')?.value.trim().toUpperCase();
- if(!code){alert('Informe o código do convite.');return}
- if(!currentUser()){openAuth('login');return}
- try{
-   const h=await rpc('join_household',{p_code:code});
-   const obj=Array.isArray(h)?h[0]:h;
-   if(obj?.id){
-     setHousehold({id:obj.id,name:obj.name||'Minhas Finanças',memberCount:2});
-     alert('Você entrou na carteira compartilhada!');
-     await syncNow();render();
-   }
- }catch(e){alert('Não foi possível entrar: '+e.message)}
-}
+function fmtDate(s){if(!s)return'';return new Date(s+'T12:00:00').toLocaleDateString('pt-BR')}
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
-function newId(){return (crypto?.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(16).slice(2))}
-function localTxPayload(t,hid){
- return {id:String(t.id),household_id:hid,user_id:currentUser()?.id||null,date:t.date,description:t.desc,category:t.cat,icon:t.icon,amount:t.amount,type:t.type,payment:t.pay||'',updated_at:new Date().toISOString()};
-}
-function localCardPayload(c,hid){
- return {id:String(c.id),household_id:hid,user_id:currentUser()?.id||null,name:c.name,icon:c.icon||'💳',credit_limit:Number(c.limit)||0,closing_day:Number(c.closing)||1,due_day:Number(c.due)||1,updated_at:new Date().toISOString()};
-}
-
-async function syncNow(){
- if(!navigator.onLine){updateSyncStatus('offline/local');return}
- if(!currentUser()||!currentHousehold()){updateSyncStatus('online • entre para sincronizar',true);return}
- try{
-   updateSyncStatus('sincronizando…',true);
-   const h=currentHousehold().id;
-
-   const remoteTx=await sb('finance_tx?select=*&household_id=eq.'+encodeURIComponent(h));
-   const localById=new Map(state.tx.map(t=>[String(t.id),t]));
-   const remoteById=new Map((remoteTx||[]).map(t=>[String(t.id),t]));
-
-   const missing=[...localById.values()].filter(t=>!remoteById.has(String(t.id)));
-   if(missing.length) await sb('finance_tx',{method:'POST',body:JSON.stringify(missing.map(t=>localTxPayload(t,h)))});
-
-   const remoteNew=(remoteTx||[]).filter(t=>!localById.has(String(t.id)));
-   if(remoteNew.length){
-     state.tx.push(...remoteNew.map(t=>({id:t.id,date:t.date,desc:t.description,cat:t.category,icon:t.icon||'💸',amount:Number(t.amount),type:t.type,pay:t.payment})));
-   }
-
-   const remoteCards=await sb('cards?select=*&household_id=eq.'+encodeURIComponent(h));
-   const localCards=new Map((state.cards||[]).map(c=>[String(c.id),c]));
-   const remoteCardsById=new Map((remoteCards||[]).map(c=>[String(c.id),c]));
-   const missingCards=[...localCards.values()].filter(c=>!remoteCardsById.has(String(c.id)));
-   if(missingCards.length) await sb('cards',{method:'POST',body:JSON.stringify(missingCards.map(c=>localCardPayload(c,h)))});
-   const newCards=(remoteCards||[]).filter(c=>!localCards.has(String(c.id)));
-   if(newCards.length){
-     state.cards=[...(state.cards||[]),...newCards.map(c=>({id:c.id,name:c.name,icon:c.icon||'💳',limit:Number(c.credit_limit)||0,closing:Number(c.closing_day)||1,due:Number(c.due_day)||1}))];
-   }
-
-   save();render();
-   updateSyncStatus('online • sincronizado',true);
- }catch(e){updateSyncStatus('online • tente sincronizar',true);console.warn(e)}
-}
-
-window.addEventListener('online',()=>syncNow());
-window.addEventListener('offline',()=>updateSyncStatus('offline/local'));
-document.addEventListener('DOMContentLoaded',async()=>{
- updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
- if(navigator.onLine&&currentUser()){
-   try{await refreshSession()}catch{}
-   await ensureHousehold();
-   await syncNow();
- }
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await carregarDadosDaPlanilha();
 });
-
 </script>
 <script>
 if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
