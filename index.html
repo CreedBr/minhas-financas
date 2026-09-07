@@ -261,8 +261,15 @@ function exportCSV(){const rows=[['Data','Descrição','Categoria','Tipo','Valor
 function resetData(){if(confirm('Restaurar os dados de exemplo? Isso substitui os lançamentos atuais.')){localStorage.removeItem(KEY);localStorage.removeItem('household');location.reload()}}
 
 const SUPABASE_CONFIG={
- url:()=>localStorage.getItem('sbUrl')||'',
- key:()=>localStorage.getItem('sbKey')||''
+ url:()=>{
+   let u=(localStorage.getItem('sbUrl')||'').trim();
+   u=u.replace(/\/+(rest\/v1|auth\/v1)\/?$/i,'');
+   return u.replace(/\/+$/,'');
+ },
+ key:()=>{
+   let k=(localStorage.getItem('sbKey')||'').trim();
+   return k;
+ }
 };
 
 function currentUser(){
@@ -282,13 +289,19 @@ function updateSyncStatus(text,online=false){
 async function auth(path,body){
  const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
  if(!url||!key) throw new Error('Configure a conexão do Supabase em Ajustes.');
- const r=await fetch(url+'/auth/v1/'+path,{
-   method:'POST',
-   headers:{apikey:key,'Content-Type':'application/json'},
-   body:JSON.stringify(body)
- });
+ let r;
+ try{
+   r=await fetch(url+'/auth/v1/'+path,{
+     method:'POST',
+     mode:'cors',
+     headers:{'apikey':key,'Content-Type':'application/json'},
+     body:JSON.stringify(body)
+   });
+ }catch(e){
+   throw new Error('Não consegui conectar ao Supabase. Confira se a URL é exatamente https://putxwjtnskw1zpkdyvk.supabase.co e tente novamente.');
+ }
  const data=await r.json().catch(()=>({}));
- if(!r.ok) throw new Error(data.msg||data.error_description||data.message||'Não foi possível concluir a operação.');
+ if(!r.ok) throw new Error(data.msg||data.error_description||data.message||data.error||('Supabase respondeu com erro '+r.status+'.'));
  return data;
 }
 function session(){
