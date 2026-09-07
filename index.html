@@ -443,16 +443,32 @@ async function ensureHousehold(){
  if(!currentUser()) return;
  if(currentHousehold()) return currentHousehold();
  try{
-   const rows=await sb('household_members?select=household_id,role&user_id=eq.'+encodeURIComponent(currentUser().id));
+   const client = getSbClient();
+   const { data: rows, error } = await client
+     .from('household_members')
+     .select('household_id, role')
+     .eq('user_id', currentUser().id);
+
+   if(error) throw error;
+
    if(rows?.length){
-     const hid=rows[0].household_id;
-     const hs=await sb('households?select=id,name&id=eq.'+encodeURIComponent(hid));
-     const h={id:hid,name:hs?.[0]?.name||'Minhas Finanças',memberCount:1};
-     setHousehold(h);render();return h;
+     const hid = rows[0].household_id;
+     const { data: hs } = await client
+       .from('households')
+       .select('id, name')
+       .eq('id', hid);
+
+     const h = { id: hid, name: hs?.[0]?.name || 'Minhas Finanças', memberCount: rows.length };
+     setHousehold(h);
+     render();
+     return h;
    }
- }catch(e){console.warn(e)}
+ }catch(e){
+   console.warn('Erro ao buscar carteira:', e);
+ }
  return null;
 }
+
 async function createHousehold(){
  try{
    const h=await rpc('create_household',{p_name:'Minhas Finanças'});
