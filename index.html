@@ -189,21 +189,17 @@ async function saveTx(e){
    state.tx.push(novoTx);
    
    try {
-     await fetch(SCRIPT_URL, {
-       method: 'POST',
-       mode: 'no-cors',
-       headers: {'Content-Type': 'application/json'},
-       body: JSON.stringify({
-         action: 'add',
-         id: novoTx.id,
-         data: novoTx.date,
-         descricao: novoTx.desc,
-         categoria: novoTx.cat,
-         tipo: novoTx.type,
-         valor: novoTx.amount,
-         pagamento: novoTx.pay
-       })
+     const params = new URLSearchParams({
+       action: 'add',
+       id: novoTx.id,
+       data: novoTx.date,
+       descricao: novoTx.desc,
+       categoria: novoTx.cat,
+       tipo: novoTx.type,
+       valor: novoTx.amount,
+       pagamento: novoTx.pay
      });
+     await fetch(SCRIPT_URL + '?' + params.toString());
    } catch(err) {
      console.error('Erro ao salvar na planilha', err);
    }
@@ -219,12 +215,8 @@ async function delTx(id){
  render();
  document.getElementById('syncStatus').textContent='● excluindo...';
  try {
-   await fetch(SCRIPT_URL, {
-     method: 'POST',
-     mode: 'no-cors',
-     headers: {'Content-Type': 'application/json'},
-     body: JSON.stringify({ action: 'delete', id: id })
-   });
+   const params = new URLSearchParams({ action: 'delete', id: id });
+   await fetch(SCRIPT_URL + '?' + params.toString());
    document.getElementById('syncStatus').textContent='● sincronizado';
  } catch(err) {
    console.error('Erro ao excluir na planilha', err);
