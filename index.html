@@ -530,6 +530,7 @@ async function syncNow(){
 window.addEventListener('online',()=>syncNow());
 window.addEventListener('offline',()=>updateSyncStatus('offline/local'));
 document.addEventListener('DOMContentLoaded',async()=>{
+ render();
  updateSyncStatus(navigator.onLine?'online':'offline/local',navigator.onLine);
  if(navigator.onLine&&currentUser()){
    try{await refreshSession()}catch{}
