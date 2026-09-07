@@ -36,6 +36,7 @@ button,input,select{font:inherit}button{cursor:pointer}
 @media(max-width:900px){.sidebar{display:none}.main{margin:0;width:100%;padding:18px 16px 85px}.grid{grid-template-columns:repeat(2,1fr)}.content{grid-template-columns:1fr}.mobilebar{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:8;padding:7px;justify-content:space-around}.mobilebar button{border:0;background:none;color:#697680;font-size:11px;font-weight:700}.mobilebar button.active{color:var(--green)}.top{align-items:flex-start}.formgrid{grid-template-columns:1fr}}
 @media(max-width:520px){.grid{grid-template-columns:1fr 1fr}.metric b{font-size:20px}.month strong{min-width:95px}.table th:nth-child(3),.table td:nth-child(3){display:none}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="manifest" href="manifest.json"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E💰%3C/text%3E%3C/svg%3E%22%3E</head>
 <body>
 <div id="syncStatus" style="position:fixed;right:14px;top:10px;z-index:20;font-size:11px;color:#66727d;background:#fff;border:1px solid #e3e7eb;border-radius:99px;padding:5px 9px">● offline/local</div><div class="app">
@@ -286,24 +287,38 @@ function updateSyncStatus(text,online=false){
  if(el){el.textContent='● '+text;el.style.color=online?'#00866a':'#66727d'}
 }
 
-async function auth(path,body){
+let sbClient=null;
+function getSbClient(){
  const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
  if(!url||!key) throw new Error('Configure a conexão do Supabase em Ajustes.');
- let r;
- try{
-   r=await fetch(url+'/auth/v1/'+path,{
-     method:'POST',
-     mode:'cors',
-     headers:{'apikey':key,'Content-Type':'application/json'},
-     body:JSON.stringify(body)
-   });
- }catch(e){
-   throw new Error('Não consegui conectar ao Supabase. Confira se a URL é exatamente https://putxwjtnskw1zpkdyvk.supabase.co e tente novamente.');
- }
- const data=await r.json().catch(()=>({}));
- if(!r.ok) throw new Error(data.msg||data.error_description||data.message||data.error||('Supabase respondeu com erro '+r.status+'.'));
- return data;
+ if(!window.supabase||!window.supabase.createClient) throw new Error('Não consegui carregar o conector do Supabase. Atualize a página e tente novamente.');
+ if(!sbClient) sbClient=window.supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+ return sbClient;
 }
+async function auth(path,body){
+ try{
+   const client=getSbClient();
+   if(path==='signup') {
+     const {data,error}=await client.auth.signUp({email:body.email,password:body.password});
+     if(error) throw error;
+     return data;
+   }
+   if(path==='token?grant_type=password') {
+     const {data,error}=await client.auth.signInWithPassword({email:body.email,password:body.password});
+     if(error) throw error;
+     return {access_token:data.session?.access_token,refresh_token:data.session?.refresh_token,user:data.user,session:data.session};
+   }
+   if(path==='token?grant_type=refresh_token') {
+     const {data,error}=await client.auth.refreshSession({refresh_token:body.refresh_token});
+     if(error) throw error;
+     return {access_token:data.session?.access_token,refresh_token:data.session?.refresh_token,user:data.user,session:data.session};
+   }
+   throw new Error('Operação de autenticação não reconhecida.');
+ }catch(e){
+   throw new Error(e?.message||'Não foi possível conectar ao Supabase.');
+ }
+}
+
 function session(){
  try{return JSON.parse(localStorage.getItem('sbSession')||'null')}catch{return null}
 }
