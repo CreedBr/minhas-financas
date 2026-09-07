@@ -222,6 +222,7 @@ function settings(){
    <div class="field" style="margin:12px 0"><label>URL do projeto Supabase</label><input id="sbUrl" placeholder="https://seu-projeto.supabase.co" value="${esc(localStorage.getItem('sbUrl')||'')}"></div>
    <div class="field" style="margin:12px 0"><label>Chave pública (anon/publishable)</label><input id="sbKey" placeholder="eyJ..." value="${esc(localStorage.getItem('sbKey')||'')}"></div>
    <button class="btn secondary" onclick="saveConnection()">Salvar conexão</button>
+   <button class="btn secondary" style="margin-left:8px" onclick="testConnection()">Testar conexão</button>
    <p id="syncMsg" style="font-size:12px;color:var(--muted);margin-top:12px">A chave deve ser somente a pública. Nunca use service_role/secret key.</p>
   </div>
 
@@ -409,6 +410,23 @@ async function logout(){
  render();
 }
 
+async function testConnection(){
+ const msg=document.getElementById('syncMsg');
+ try{
+   const url=SUPABASE_CONFIG.url(), key=SUPABASE_CONFIG.key();
+   if(!url||!key) throw new Error('URL ou chave pública não preenchida.');
+   msg.textContent='Testando conexão com o Supabase…';
+   const r=await fetch(url+'/auth/v1/settings',{method:'GET',headers:{apikey:key}});
+   const text=await r.text();
+   if(!r.ok) throw new Error('Supabase respondeu HTTP '+r.status+(text?' — '+text.slice(0,180):''));
+   msg.textContent='CONEXÃO OK! O Supabase respondeu normalmente. Agora podemos testar a criação da conta.';
+   updateSyncStatus('conectado ao Supabase',true);
+ }catch(e){
+   msg.textContent='TESTE FALHOU: '+(e?.message||e);
+   updateSyncStatus('falha na conexão',false);
+   console.error('Teste Supabase:',e);
+ }
+}
 async function saveConnection(){
  const url=document.getElementById('sbUrl').value.trim().replace(/\/$/,'');
  const key=document.getElementById('sbKey').value.trim();
