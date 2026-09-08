@@ -38,17 +38,15 @@ button,input,select{font:inherit}button{cursor:pointer}
 </style>
 <link rel="manifest" href="manifest.json"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E💰%3C/text%3E%3C/svg%3E%22%3E</head>
 <body>
-<div id="syncStatus" style="position:fixed;right:14px;top:10px;z-index:20;font-size:11px;color:#00866a;background:#fff;border:1px solid #e3e7eb;border-radius:99px;padding:5px 9px">● conectado à planilha</div>
-<div class="app">
+<div id="syncStatus" style="position:fixed;right:14px;top:10px;z-index:20;font-size:11px;color:#66727d;background:#fff;border:1px solid #e3e7eb;border-radius:99px;padding:5px 9px">● offline/local</div><div class="app">
   <aside class="sidebar">
-    <div class="brand">Minhas Finanças<small>controle compartilhado</small></div>
+    <div class="brand">Minhas Finanças<small>controle financeiro pessoal</small></div>
     <div class="nav">
       <button class="active" data-page="dashboard">▦ &nbsp; Painel</button>
       <button data-page="transactions">☷ &nbsp; Transações</button>
       <button data-page="new">＋ &nbsp; Novo lançamento</button>
       <button data-page="cards">▣ &nbsp; Cartões</button>
-      <button data-page="settings">⚙ &nbsp; Ajustes</button>
-      <button onclick="carregarDadosDaPlanilha()">☁ &nbsp; Sincronizar</button>
+      <button data-page="settings">⚙ &nbsp; Ajustes</button><button onclick="syncNow()">☁ &nbsp; Sincronizar</button>
     </div>
   </aside>
   <main class="main" id="main"></main>
@@ -77,35 +75,36 @@ button,input,select{font:inherit}button{cursor:pointer}
   </form>
 </div></div>
 
-<!-- iframe oculto para envio sem bloqueio de CORS -->
-<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(enviando){ carregarDadosDaPlanilha(); enviando=false; }"></iframe>
-<form id="hidden_form" action="https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec" method="GET" target="hidden_iframe" style="display:none;">
-  <input type="hidden" name="action" id="f_action">
-  <input type="hidden" name="id" id="f_id">
-  <input type="hidden" name="data" id="f_data">
-  <input type="hidden" name="descricao" id="f_descricao">
-  <input type="hidden" name="categoria" id="f_categoria">
-  <input type="hidden" name="tipo" id="f_tipo">
-  <input type="hidden" name="valor" id="f_valor">
-  <input type="hidden" name="pagamento" id="f_pagamento">
-</form>
-
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec";
-let enviando = false;
 
-let state = {
-  cards: [{id:1,name:'Cartão de crédito',icon:'💳',limit:5000,closing:10,due:17}],
-  categories: [
+(function migrateOldData(){
+  try{
+    if(!localStorage.getItem('minhas_financas_v2')){
+      const old=localStorage.getItem('grana_certa_v1');
+      if(old)localStorage.setItem('minhas_financas_v2',old);
+    }
+  }catch(e){}
+})();
+
+const KEY='minhas_financas_v2';
+let state=JSON.parse(localStorage.getItem(KEY)||'null')||{
+  cards:[{id:1,name:'Cartão de crédito',icon:'💳',limit:5000,closing:10,due:17}],
+  categories:[
     ['🍔','Alimentação'],['📺','Assinaturas'],['📚','Educação'],['🎉','Lazer'],['🛒','Mercado'],
-    ['🏠','Moradia'],['🎁','Outros gastos'],['🐾','Pets'],['👕','Roupas'],['💊','Saúde'],['🚗','Transporte'],['💰','Recebimento']
+    ['🏠','Moradia'],['🎁','Outros gastos'],['🐾','Pets'],['👕','Roupas'],['💊','Saúde'],['🚗','Transporte']
   ],
-  tx: []
+  tx:[
+    {id:1,date:'2026-09-05',desc:'Uber de volta',cat:'Transporte',icon:'🚗',amount:19.80,type:'expense',pay:'PIX'},
+    {id:2,date:'2026-09-05',desc:'Almoço',cat:'Alimentação',icon:'🍔',amount:41.90,type:'expense',pay:'Dinheiro/débito'},
+    {id:3,date:'2026-09-04',desc:'Café da manhã',cat:'Alimentação',icon:'🍔',amount:11,type:'expense',pay:'Dinheiro/débito'},
+    {id:4,date:'2026-09-03',desc:'Salário',cat:'Recebimento',icon:'💰',amount:5200,type:'income',pay:'Transferência'},
+    {id:5,date:'2026-09-02',desc:'Mercado da semana',cat:'Mercado',icon:'🛒',amount:143.20,type:'expense',pay:'Cartão de crédito'}
+  ]
 };
-
 let currentPage='dashboard', currentMonth=new Date('2026-09-07T12:00:00'), currentType='expense';
-
-function money(n){return Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+state.cards=state.cards||[];
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function money(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function monthKey(){return currentMonth.toISOString().slice(0,7)}
 function monthName(){return currentMonth.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
 function monthNav(){return `<div class="month"><button onclick="changeMonth(-1)">‹</button><strong>${monthName()}</strong><button onclick="changeMonth(1)">›</button></div>`}
@@ -113,13 +112,12 @@ function header(title,sub=''){return `<div class="top"><div class="title"><h1>${
 function setPage(p){currentPage=p;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===p));render()}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>setPage(b.dataset.page));
 function changeMonth(d){currentMonth.setMonth(currentMonth.getMonth()+d);render()}
-function monthTx(){return state.tx.filter(t=>t.date && t.date.slice(0,7)===monthKey())}
-
+function monthTx(){return state.tx.filter(t=>t.date.slice(0,7)===monthKey())}
 function dashboard(){
  const tx=monthTx(), inc=tx.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0), out=tx.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
  const cats=state.categories.map(c=>({icon:c[0],name:c[1],v:tx.filter(t=>t.cat===c[1]&&t.type==='expense').reduce((a,t)=>a+t.amount,0)})).filter(c=>c.v).sort((a,b)=>b.v-a.v);
  const recent=[...tx].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
- return header('Painel','Painel sincronizado com a planilha')+
+ return header('Painel','Uma visão rápida do seu dinheiro')+
  `<div class="grid">
   <div class="card metric"><span>Saldo do mês</span><b>${money(inc-out)}</b></div>
   <div class="card metric in"><span>Entradas</span><b>${money(inc)}</b></div>
@@ -131,146 +129,97 @@ function dashboard(){
   <div class="card"><h2>Últimos lançamentos</h2>${recent.length?recent.map(txRow).join(''):'<div class="empty">Nenhum lançamento.</div>'}</div>
  </div>`;
 }
-
 function txRow(t){return `<div class="tx"><div class="ico">${t.icon||'💸'}</div><div class="txmain"><b>${esc(t.desc)}</b><small>${esc(t.cat)} · ${fmtDate(t.date)}${t.pay?' · '+esc(t.pay):''}</small></div><div class="amount ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</div></div>`}
-
 function transactions(){
  const tx=[...monthTx()].sort((a,b)=>b.date.localeCompare(a.date));
- return header('Transações','Lançamentos da planilha compartilhada')+
+ return header('Transações','Todos os lançamentos do mês')+
  `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="tabs"><button class="tab active" onclick="render()">Todos</button></div><button class="btn" onclick="openModal()">＋ Novo lançamento</button></div>
- ${tx.length?`<table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th class="right">Valor</th><th></th></tr></thead><tbody>${tx.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.icon||'💸'} ${esc(t.desc)}</td><td>${esc(t.cat)}</td><td>${esc(t.pay||'')}</td><td class="right ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</td><td class="right"><button class="iconbtn" title="Excluir" onclick="delTx('${t.id}')">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nenhum lançamento neste mês.</div>'}</div>`;
+ ${tx.length?`<table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th class="right">Valor</th><th></th></tr></thead><tbody>${tx.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.icon||'💸'} ${esc(t.desc)}</td><td>${esc(t.cat)}</td><td>${esc(t.pay||'')}</td><td class="right ${t.type}">${t.type==='expense'?'− ':'+ '}${money(t.amount)}</td><td class="right"><button class="iconbtn" title="Excluir" onclick="delTx(${t.id})">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nenhum lançamento neste mês.</div>'}</div>`;
 }
-
-function newPage(){return header('Novo lançamento','Adicionar na planilha')+`<div class="card" style="max-width:700px"><h2>Adicionar movimentação</h2><button class="btn" onclick="openModal()">＋ Abrir formulário</button></div>`}
-
+function newPage(){return header('Novo lançamento','Registre uma entrada ou saída')+`<div class="card" style="max-width:700px"><h2>Adicionar movimentação</h2><p style="color:var(--muted)">O formulário também pode ser aberto pelo botão +. Os dados são salvos na planilha do Google e podem ser compartilhados entre os aparelhos.</p><button class="btn" onclick="openModal()">＋ Abrir formulário</button></div>`}
 function cardsPage(){
  const cards=state.cards||[];
  const creditTx=state.tx.filter(t=>t.pay==='Cartão de crédito'&&t.type==='expense');
- const total=creditTx.filter(t=>t.date && t.date.slice(0,7)===monthKey()).reduce((a,t)=>a+t.amount,0);
- return header('Cartões','Controle de crédito')+
- `<div class="grid">
- ${cards.map(c=>`<div class="card">
-    <div><span style="color:var(--muted);font-size:13px;font-weight:700">Cartão</span><h2 style="margin:8px 0">${c.icon} ${c.name}</h2></div>
+ const total=creditTx.filter(t=>t.date.slice(0,7)===monthKey()).reduce((a,t)=>a+t.amount,0);
+ const installments=creditTx.filter(t=>/\(\d+\/\d+\)$/.test(t.desc));
+ return header('Cartões','Controle das compras no crédito')+
+ `<div style="display:flex;justify-content:flex-end;margin-bottom:15px"><button class="btn" onclick="openCardModal()">＋ Adicionar cartão</button></div>
+ <div class="grid">
+ ${cards.length?cards.map(c=>{
+   const used=total; const pct=c.limit?Math.min(100,used/c.limit*100):0;
+   return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:start"><div><span style="color:var(--muted);font-size:13px;font-weight:700">Cartão</span><h2 style="margin:8px 0">${c.icon||'💳'} ${esc(c.name)}</h2></div><button class="iconbtn" onclick="removeCard(${c.id})">🗑</button></div>
     <div style="font-size:12px;color:var(--muted)">Fatura de ${monthName()}</div>
     <div style="font-size:26px;font-weight:900;margin:5px 0 12px">${money(total)}</div>
-   </div>`).join('')}
- </div>`;
+    <div class="cathead"><span>Limite utilizado</span><span>${c.limit?money(c.limit-used)+' disponível':'Sem limite cadastrado'}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div style="display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)"><span>Fecha dia <b>${c.closing}</b></span><span>Vence dia <b>${c.due}</b></span></div>
+   </div>`}).join(''):'<div class="card empty" style="grid-column:1/-1">Nenhum cartão cadastrado. Adicione seu primeiro cartão para acompanhar limite e fatura.</div>'}
+ </div>
+ <div class="content">
+  <div class="card"><h2>Fatura atual</h2>${creditTx.filter(t=>t.date.slice(0,7)===monthKey()).length?creditTx.filter(t=>t.date.slice(0,7)===monthKey()).sort((a,b)=>b.date.localeCompare(a.date)).map(txRow).join(''):'<div class="empty">Nenhuma compra no cartão neste mês.</div>'}</div>
+  <div class="card"><h2>Parcelamentos</h2>${installments.length?installments.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<div class="tx"><div class="ico">📆</div><div class="txmain"><b>${esc(t.desc)}</b><small>${fmtDate(t.date)} · ${esc(t.cat)}</small></div><div class="amount expense">${money(t.amount)}</div></div>`).join(''):'<div class="empty">Nenhum parcelamento registrado.</div>'}</div>
+ </div>
+ <div class="modal" id="cardModal"><div class="modalbox">
+  <div class="modalhead"><h2>Novo cartão</h2><button class="iconbtn" onclick="closeCardModal()">✕</button></div>
+  <form onsubmit="saveCard(event)">
+   <div class="formgrid">
+    <div class="field"><label>Nome do cartão</label><input id="cardName" placeholder="Ex.: Nubank" required></div>
+    <div class="field"><label>Limite</label><input id="cardLimit" type="number" step="0.01" min="0" placeholder="5000"></div>
+    <div class="field"><label>Dia de fechamento</label><input id="cardClosing" type="number" min="1" max="31" value="10" required></div>
+    <div class="field"><label>Dia de vencimento</label><input id="cardDue" type="number" min="1" max="31" value="17" required></div>
+   </div>
+   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="btn secondary" onclick="closeCardModal()">Cancelar</button><button class="btn">Salvar cartão</button></div>
+  </form>
+ </div></div>`;
 }
-
+function openCardModal(){document.getElementById('cardModal')?.classList.add('open')}
+function closeCardModal(){document.getElementById('cardModal')?.classList.remove('open')}
+function saveCard(e){e.preventDefault();state.cards=state.cards||[];state.cards.push({id:newId(),name:document.getElementById('cardName').value.trim(),icon:'💳',limit:Number(document.getElementById('cardLimit').value)||0,closing:Number(document.getElementById('cardClosing').value),due:Number(document.getElementById('cardDue').value)});save();render()}
+function removeCard(id){if(confirm('Remover este cartão?')){state.cards=state.cards.filter(c=>c.id!==id);save();render()}}
 function settings(){
- return header('Ajustes','Configuração da Planilha Compartilhada')+
- `<div class="content">
-  <div class="card"><h2>Status da Conexão</h2>
-   <p style="color:var(--muted)">O aplicativo está conectado diretamente à sua Planilha do Google. Você e sua esposa podem usar ao mesmo tempo.</p>
-   <button class="btn" onclick="carregarDadosDaPlanilha()">Sincronizar Agora</button>
-  </div>
+ return header('Ajustes','Configurações do aplicativo')+`<div class="content">
+ <div class="card"><h2>Carteira compartilhada</h2><p style="color:var(--muted)">Os lançamentos ficam salvos na sua planilha do Google. Assim, você e sua esposa podem usar o mesmo aplicativo e enxergar os mesmos lançamentos.</p><div style="background:#eef8f5;border-radius:12px;padding:13px;margin-top:12px"><b>✓ Google Sheets conectado</b><br><small style="color:var(--muted)">Os dados são enviados para a planilha configurada.</small></div><button class="btn" style="margin-top:14px" onclick="carregarDadosDaPlanilha()">☁ Atualizar dados da planilha</button></div>
+ <div class="card"><h2>Categorias</h2>${state.categories.map((c,i)=>`<div class="tx"><div class="ico">${c[0]}</div><div class="txmain"><b>${esc(c[1])}</b><small>Categoria ativa</small></div><button class="iconbtn" onclick="removeCat(${i})">🗑</button></div>`).join('')}<div style="display:flex;gap:8px;margin-top:15px"><input id="newCat" placeholder="Nova categoria" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:11px"><button class="btn" onclick="addCat()">Adicionar</button></div></div>
  </div>`;
 }
-
 function render(){document.getElementById('main').innerHTML=currentPage==='dashboard'?dashboard():currentPage==='transactions'?transactions():currentPage==='new'?newPage():currentPage==='cards'?cardsPage():settings();populateCategory()}
 function populateCategory(){const s=document.getElementById('category');if(!s)return;s.innerHTML=state.categories.map(c=>`<option value="${esc(c[1])}">${c[0]} ${esc(c[1])}</option>`).join('')}
 function openModal(){document.getElementById('modal').classList.add('open');document.getElementById('date').value=new Date().toISOString().slice(0,10);populateCategory()}
 function closeModal(){document.getElementById('modal').classList.remove('open');document.getElementById('txForm').reset()}
 function setType(t){currentType=t;document.getElementById('expenseBtn').classList.toggle('active',t==='expense');document.getElementById('incomeBtn').classList.toggle('active',t==='income')}
-
 async function saveTx(e){
  e.preventDefault();
- const cat=document.getElementById('category').value;
- const icon=(state.categories.find(c=>c[1]===cat)||['💸'])[0];
- const amount=Number(document.getElementById('amount').value);
- const n=Number(document.getElementById('installments').value);
- const baseDate=document.getElementById('date').value;
- const desc=document.getElementById('desc').value;
- const pay=document.getElementById('payment').value;
-
- closeModal();
- document.getElementById('syncStatus').textContent='● salvando...';
-
- for(let i=0;i<n;i++){
-   let d=new Date(baseDate+'T12:00:00');
-   d.setMonth(d.getMonth()+i);
-   let idTx = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-   let novoTx = {
-     id: idTx,
-     date: d.toISOString().slice(0,10),
-     desc: desc + (n>1?` (${i+1}/${n})`:''),
-     cat: cat,
-     icon: icon,
-     amount: amount/n,
-     type: currentType,
-     pay: pay
-   };
-   
-   state.tx.push(novoTx);
-
-   document.getElementById('f_action').value = 'add';
-   document.getElementById('f_id').value = novoTx.id;
-   document.getElementById('f_data').value = novoTx.date;
-   document.getElementById('f_descricao').value = novoTx.desc;
-   document.getElementById('f_categoria').value = novoTx.cat;
-   document.getElementById('f_tipo').value = novoTx.type;
-   document.getElementById('f_valor').value = novoTx.amount;
-   document.getElementById('f_pagamento').value = novoTx.pay;
-
-   enviando = true;
-   document.getElementById('hidden_form').submit();
- }
-
- render();
- document.getElementById('syncStatus').textContent='● sincronizado';
+ const cat=document.getElementById('category').value, icon=(state.categories.find(c=>c[1]===cat)||['💸'])[0];
+ const amount=Number(document.getElementById('amount').value), n=Number(document.getElementById('installments').value);
+ const baseDate=document.getElementById('date').value, desc=document.getElementById('desc').value.trim(), pay=document.getElementById('payment').value;
+ if(!amount||!baseDate||!desc){alert('Preencha os campos obrigatórios.');return;}
+ closeModal(); updateSyncStatus('salvando na planilha…',false);
+ const novos=[];
+ for(let i=0;i<n;i++){let d=new Date(baseDate+'T12:00:00');d.setMonth(d.getMonth()+i);novos.push({id:newId(),date:d.toISOString().slice(0,10),desc:desc+(n>1?` (${i+1}/${n})`:''),cat,icon,amount:amount/n,type:currentType,pay});}
+ try{for(const t of novos){await enviarParaPlanilha('add',t);state.tx.push(t);}save();updateSyncStatus('salvo na planilha',true);setPage('transactions');}
+ catch(err){console.error(err);updateSyncStatus('erro ao salvar',false);alert('Não consegui salvar na planilha.\n\n'+(err.message||err));}
 }
-
 async function delTx(id){
- if(!confirm('Excluir este lançamento?')) return;
- state.tx = state.tx.filter(t => t.id !== id);
- render();
- document.getElementById('syncStatus').textContent='● excluindo...';
-
- document.getElementById('f_action').value = 'delete';
- document.getElementById('f_id').value = id;
- document.getElementById('f_data').value = '';
- document.getElementById('f_descricao').value = '';
- document.getElementById('f_categoria').value = '';
- document.getElementById('f_tipo').value = '';
- document.getElementById('f_valor').value = '';
- document.getElementById('f_pagamento').value = '';
-
- enviando = true;
- document.getElementById('hidden_form').submit();
- render();
+ if(!confirm('Excluir este lançamento?'))return; updateSyncStatus('excluindo…',false);
+ try{await enviarParaPlanilha('delete',{id:String(id)});state.tx=state.tx.filter(t=>String(t.id)!==String(id));save();updateSyncStatus('excluído da planilha',true);render();}
+ catch(err){console.error(err);updateSyncStatus('erro ao excluir',false);alert('Não consegui excluir da planilha.\n\n'+(err.message||err));}
 }
+function addCat(){const el=document.getElementById('newCat');const n=el.value.trim();if(!n)return;if(!state.categories.some(c=>c[1].toLowerCase()===n.toLowerCase())){state.categories.push(['📌',n]);save();render()}}
+function removeCat(i){if(confirm('Remover esta categoria da lista?')){state.categories.splice(i,1);save();render()}}
+function fmtDate(s){return new Date(s+'T12:00:00').toLocaleDateString('pt-BR')}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function exportCSV(){const rows=[['Data','Descrição','Categoria','Tipo','Valor','Pagamento'],...state.tx.map(t=>[t.date,t.desc,t.cat,t.type,t.amount.toFixed(2),t.pay||''])];const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(';')).join('\\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='minhas-financas.csv';a.click()}
+function resetData(){if(confirm('Restaurar os dados de exemplo? Isso substitui os lançamentos atuais.')){localStorage.removeItem(KEY);localStorage.removeItem('household');location.reload()}}
 
-async function carregarDadosDaPlanilha(){
- document.getElementById('syncStatus').textContent='● carregando...';
- try {
-   const res = await fetch(SCRIPT_URL);
-   const rows = await res.json();
-   if(Array.isArray(rows)){
-     state.tx = rows.map(r => ({
-       id: String(r.id || ''),
-       date: String(r.data || '').slice(0,10),
-       desc: String(r.descricao || ''),
-       cat: String(r.categoria || 'Outros'),
-       icon: (state.categories.find(c=>c[1]===r.categoria)||['💸'])[0],
-       amount: Number(r.valor || 0),
-       type: String(r.tipo || 'expense'),
-       pay: String(r.pagamento || '')
-     })).filter(t => t.id);
-     render();
-     document.getElementById('syncStatus').textContent='● conectado à planilha';
-   }
- } catch(e) {
-   console.error('Erro ao carregar dados:', e);
-   document.getElementById('syncStatus').textContent='● erro ao sincronizar';
- }
-}
-
-function fmtDate(s){if(!s)return'';return new Date(s+'T12:00:00').toLocaleDateString('pt-BR')}
-function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-
-document.addEventListener('DOMContentLoaded', async ()=>{
-  await carregarDadosDaPlanilha();
-});
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec';
+function updateSyncStatus(text,online=false){const el=document.getElementById('syncStatus');if(el){el.textContent='● '+text;el.style.color=online?'#00866a':'#66727d';}}
+async function enviarParaPlanilha(action,data={}){const params=new URLSearchParams({action,...data});return new Promise((resolve,reject)=>{const frame=document.createElement('iframe'),name='sheet_'+Date.now()+'_'+Math.random().toString(36).slice(2);frame.name=name;frame.style.display='none';document.body.appendChild(frame);const form=document.createElement('form');form.method='GET';form.target=name;form.action=SCRIPT_URL+'?'+params.toString();form.style.display='none';document.body.appendChild(form);let done=false;const clean=()=>setTimeout(()=>{frame.remove();form.remove()},50);frame.onload=()=>{if(done)return;done=true;clean();resolve({status:'success'})};form.submit();setTimeout(()=>{if(done)return;done=true;clean();reject(new Error('O Google Sheets não respondeu a tempo.'))},15000);});}
+async function carregarDadosDaPlanilha(){updateSyncStatus('carregando planilha…',false);try{const res=await fetch(SCRIPT_URL+'?t='+Date.now(),{cache:'no-store'});if(!res.ok)throw new Error('Google Sheets respondeu HTTP '+res.status);const rows=await res.json();if(!Array.isArray(rows))throw new Error('Resposta inválida da planilha.');state.tx=rows.map(r=>({id:String(r.id||''),date:String(r.data||'').slice(0,10),desc:String(r.descricao||''),cat:String(r.categoria||'Outros gastos'),icon:(state.categories.find(c=>c[1]===String(r.categoria||''))||['💸'])[0],amount:Number(r.valor||0),type:String(r.tipo||'expense'),pay:String(r.pagamento||'')})).filter(t=>t.id&&t.date);save();render();updateSyncStatus('planilha sincronizada',true);return true}catch(e){console.error('Erro ao carregar planilha:',e);updateSyncStatus('erro ao carregar planilha',false);return false;}}
+async function syncNow(){if(!navigator.onLine){updateSyncStatus('sem internet',false);return}await carregarDadosDaPlanilha();}
+function newId(){return crypto?.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(16).slice(2)}
+window.addEventListener('online',()=>carregarDadosDaPlanilha());window.addEventListener('offline',()=>updateSyncStatus('sem internet',false));
+document.addEventListener('DOMContentLoaded',async()=>{updateSyncStatus('conectando à planilha…',false);await carregarDadosDaPlanilha();});
 </script>
 <script>
 if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
