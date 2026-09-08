@@ -77,8 +77,22 @@ button,input,select{font:inherit}button{cursor:pointer}
   </form>
 </div></div>
 
+<!-- iframe oculto para envio sem bloqueio de CORS -->
+<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(enviando){ carregarDadosDaPlanilha(); enviando=false; }"></iframe>
+<form id="hidden_form" action="https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec" method="GET" target="hidden_iframe" style="display:none;">
+  <input type="hidden" name="action" id="f_action">
+  <input type="hidden" name="id" id="f_id">
+  <input type="hidden" name="data" id="f_data">
+  <input type="hidden" name="descricao" id="f_descricao">
+  <input type="hidden" name="categoria" id="f_categoria">
+  <input type="hidden" name="tipo" id="f_tipo">
+  <input type="hidden" name="valor" id="f_valor">
+  <input type="hidden" name="pagamento" id="f_pagamento">
+</form>
+
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec";
+let enviando = false;
 
 let state = {
   cards: [{id:1,name:'Cartão de crédito',icon:'💳',limit:5000,closing:10,due:17}],
@@ -175,8 +189,9 @@ async function saveTx(e){
  for(let i=0;i<n;i++){
    let d=new Date(baseDate+'T12:00:00');
    d.setMonth(d.getMonth()+i);
+   let idTx = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
    let novoTx = {
-     id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+     id: idTx,
      date: d.toISOString().slice(0,10),
      desc: desc + (n>1?` (${i+1}/${n})`:''),
      cat: cat,
@@ -187,22 +202,18 @@ async function saveTx(e){
    };
    
    state.tx.push(novoTx);
-   
-   try {
-     const params = new URLSearchParams({
-       action: 'add',
-       id: novoTx.id,
-       data: novoTx.date,
-       descricao: novoTx.desc,
-       categoria: novoTx.cat,
-       tipo: novoTx.type,
-       valor: novoTx.amount,
-       pagamento: novoTx.pay
-     });
-     await fetch(SCRIPT_URL + '?' + params.toString());
-   } catch(err) {
-     console.error('Erro ao salvar na planilha', err);
-   }
+
+   document.getElementById('f_action').value = 'add';
+   document.getElementById('f_id').value = novoTx.id;
+   document.getElementById('f_data').value = novoTx.date;
+   document.getElementById('f_descricao').value = novoTx.desc;
+   document.getElementById('f_categoria').value = novoTx.cat;
+   document.getElementById('f_tipo').value = novoTx.type;
+   document.getElementById('f_valor').value = novoTx.amount;
+   document.getElementById('f_pagamento').value = novoTx.pay;
+
+   enviando = true;
+   document.getElementById('hidden_form').submit();
  }
 
  render();
@@ -214,13 +225,18 @@ async function delTx(id){
  state.tx = state.tx.filter(t => t.id !== id);
  render();
  document.getElementById('syncStatus').textContent='● excluindo...';
- try {
-   const params = new URLSearchParams({ action: 'delete', id: id });
-   await fetch(SCRIPT_URL + '?' + params.toString());
-   document.getElementById('syncStatus').textContent='● sincronizado';
- } catch(err) {
-   console.error('Erro ao excluir na planilha', err);
- }
+
+ document.getElementById('f_action').value = 'delete';
+ document.getElementById('f_id').value = id;
+ document.getElementById('f_data').value = '';
+ document.getElementById('f_descricao').value = '';
+ document.getElementById('f_categoria').value = '';
+ document.getElementById('f_tipo').value = '';
+ document.getElementById('f_valor').value = '';
+ document.getElementById('f_pagamento').value = '';
+
+ enviando = true;
+ document.getElementById('hidden_form').submit();
  render();
 }
 
