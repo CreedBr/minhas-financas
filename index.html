@@ -214,62 +214,79 @@ function resetData(){if(confirm('Restaurar os dados de exemplo? Isso substitui o
 
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwpBk-yXTLNl35kKMhWk6A_HvfEc-qkd5x73Sj7eU9_ulk9OGE-DvtJQKyCZXNWYQKKdQ/exec';
 function updateSyncStatus(text,online=false){const el=document.getElementById('syncStatus');if(el){el.textContent='● '+text;el.style.color=online?'#00866a':'#66727d';}}
-async function enviarParaPlanilha(action,data={}){const params=new URLSearchParams({action,...data});return new Promise((resolve,reject)=>{const frame=document.createElement('iframe'),name='sheet_'+Date.now()+'_'+Math.random().toString(36).slice(2);frame.name=name;frame.style.display='none';document.body.appendChild(frame);const form=document.createElement('form');form.method='GET';form.target=name;form.action=SCRIPT_URL+'?'+params.toString();form.style.display='none';document.body.appendChild(form);let done=false;const clean=()=>setTimeout(()=>{frame.remove();form.remove()},50);frame.onload=()=>{if(done)return;done=true;clean();resolve({status:'success'})};form.submit();setTimeout(()=>{if(done)return;done=true;clean();reject(new Error('O Google Sheets não respondeu a tempo.'))},15000);});}
-function carregarDadosDaPlanilha(){
-  updateSyncStatus('carregando planilha…',false);
-  return new Promise((resolve)=>{
-    const cb='sheetCallback_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+function jsonpRequest(params, timeoutMs=15000){
+  return new Promise((resolve,reject)=>{
+    const cb='sheetCb'+Date.now()+Math.random().toString(36).slice(2);
     const script=document.createElement('script');
     let finished=false;
-    const cleanup=()=>{clearTimeout(timer);delete window[cb];script.remove();};
-    window[cb]=function(rows){
+    let timer=null;
+    const cleanup=()=>{
+      if(timer) clearTimeout(timer);
+      try{delete window[cb]}catch(e){window[cb]=undefined}
+      script.remove();
+    };
+    window[cb]=function(data){
       if(finished)return;
       finished=true;
-      try{
-        if(!Array.isArray(rows)) throw new Error('Resposta inválida da planilha.');
-        const loaded=rows.map(r=>({
-          id:String(r.id||''),
-          date:String(r.data||'').slice(0,10),
-          desc:String(r.descricao||''),
-          cat:String(r.categoria||'Outros gastos'),
-          icon:(state.categories.find(c=>c[1]===String(r.categoria||''))||['💸'])[0],
-          amount:Number(r.valor||0),
-          type:String(r.tipo||'expense'),
-          pay:String(r.pagamento||'')
-        })).filter(t=>t.id&&t.date);
-
-        // Só substitui os dados locais depois que a planilha respondeu
-        // com uma lista válida. Assim uma falha de comunicação não apaga a tela.
-        state.tx=loaded;
-        save();
-        render();
-        updateSyncStatus('planilha sincronizada',true);
-        resolve(true);
-      }catch(err){
-        console.error('Erro ao interpretar planilha:',err);
-        updateSyncStatus('erro ao ler planilha',false);
-        resolve(false);
-      }
       cleanup();
+      resolve(data);
     };
     script.onerror=()=>{
       if(finished)return;
       finished=true;
-      console.error('Não foi possível acessar o Google Sheets.');
-      updateSyncStatus('erro ao carregar planilha',false);
-      resolve(false);
       cleanup();
+      reject(new Error('O Google Apps Script não respondeu.'));
     };
-    script.src=SCRIPT_URL+'?callback='+encodeURIComponent(cb)+'&t='+Date.now();
+    params.callback=cb;
+    params.t=Date.now();
+    script.src=SCRIPT_URL+'?'+new URLSearchParams(params).toString();
     document.body.appendChild(script);
-    const timer=setTimeout(()=>{
+    timer=setTimeout(()=>{
       if(finished)return;
       finished=true;
-      updateSyncStatus('tempo esgotado ao carregar',false);
-      resolve(false);
       cleanup();
-    },15000);
+      reject(new Error('Tempo esgotado ao comunicar com o Google Sheets.'));
+    },timeoutMs);
   });
+}
+
+async function enviarParaPlanilha(action,data={}){
+  const result=await jsonpRequest({action,...data});
+  if(!result || result.status!=='success'){
+    throw new Error(result && result.message ? result.message : 'O Google Sheets não confirmou a operação.');
+  }
+  return result;
+}
+
+async function carregarDadosDaPlanilha(){
+  updateSyncStatus('carregando planilha…',false);
+  try{
+    const rows=await jsonpRequest({});
+    if(!Array.isArray(rows)) throw new Error('Resposta inválida da planilha.');
+
+    const loaded=rows.map(r=>({
+      id:String(r.id??''),
+      date:String(r.data??'').slice(0,10),
+      desc:String(r.descricao??''),
+      cat:String(r.categoria??'Outros gastos'),
+      icon:(state.categories.find(c=>c[1]===String(r.categoria??''))||['💸'])[0],
+      amount:Number(r.valor??0),
+      type:String(r.tipo??'expense'),
+      pay:String(r.pagamento??'')
+    })).filter(t=>t.id && t.date);
+
+    // Só substitui os dados locais depois que a planilha respondeu corretamente.
+    state.tx=loaded;
+    save();
+    render();
+    updateSyncStatus('planilha sincronizada',true);
+    return true;
+  }catch(err){
+    console.error('Erro ao ler planilha:',err);
+    // Em caso de falha de comunicação, NÃO apaga os dados que já estão na tela.
+    updateSyncStatus('erro ao ler planilha',false);
+    return false;
+  }
 }
 
 async function syncNow(){if(!navigator.onLine){updateSyncStatus('sem internet',false);return}await carregarDadosDaPlanilha();}
